@@ -184,6 +184,11 @@ export const CgCounterScreen = ({ onBack, bookingId, eventId, initialCount }: {
           <Button variant="ghost" size="sm" onClick={onBack} className="px-2">&#8592; Back</Button>
           {saving && <span className="text-xs text-muted-foreground animate-pulse">Saving...</span>}
         </div>
+        {/* Header */}
+      <PageHeader 
+        title={""} 
+        subtitle={""} 
+      />
 
         {/* Deity Image — taps here increment */}
         <div className="relative w-full">
