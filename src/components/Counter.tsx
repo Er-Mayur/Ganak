@@ -133,7 +133,7 @@ export const Counter = ({ onJaapCountChange }: CounterProps) => {
 
   return (
     <div 
-      className="relative flex flex-col items-center justify-center min-h-screen p-4 cursor-pointer select-none"
+      className="relative flex flex-col items-center justify-center min-h-screen p-4 cursor-pointer select-none pb-24"
       onClick={handleJaap}
     >
       <div className="absolute top-4 right-4 z-20" onClick={(e) => e.stopPropagation()}>
