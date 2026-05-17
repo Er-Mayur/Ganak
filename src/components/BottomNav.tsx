@@ -5,9 +5,10 @@ import { useJapa } from "@/contexts/JapaContext";
 interface BottomNavProps {
   activeTab: "counter" | "dashboard" | "chakri" | "calendar" | "settings";
   onTabChange: (tab: "counter" | "dashboard" | "chakri" | "calendar" | "settings") => void;
+  hasActiveSlot?: boolean;
 }
 
-export const BottomNav = ({ activeTab, onTabChange }: BottomNavProps) => {
+export const BottomNav = ({ activeTab, onTabChange, hasActiveSlot }: BottomNavProps) => {
   const { getText, settings } = useJapa();
   
   const navItems = [
@@ -57,13 +58,19 @@ export const BottomNav = ({ activeTab, onTabChange }: BottomNavProps) => {
               variant="ghost"
               size="sm"
               onClick={() => onTabChange(item.id)}
-              className={`flex flex-col items-center space-y-1 h-auto py-2 px-2 sm:px-4 rounded-xl transition-all duration-200 min-w-0 ${
+              className={`relative flex flex-col items-center space-y-1 h-auto py-2 px-2 sm:px-4 rounded-xl transition-all duration-200 min-w-0 ${
                 isActive 
                   ? "bg-primary/10 text-primary border border-primary/20" 
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
               }`}
             >
-              <Icon className={`h-5 w-5 ${isActive ? "text-primary" : ""}`} />
+              <div className="relative">
+                <Icon className={`h-5 w-5 ${isActive ? "text-primary" : ""}`} />
+                {/* Green dot: only on Chakri tab when user has an active slot right now */}
+                {item.id === "chakri" && hasActiveSlot && (
+                  <span className="absolute -top-1 -right-1.5 h-2.5 w-2.5 rounded-full bg-green-500 border border-background animate-pulse" />
+                )}
+              </div>
               <span className={`text-xs font-medium truncate max-w-16 ${isActive ? "text-primary" : ""}`}>
                 {displayLabel}
               </span>

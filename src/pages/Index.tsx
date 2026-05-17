@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useJapa } from "@/contexts/JapaContext";
+import { supabase } from "@/integrations/supabase/client";
+import { getISTNow, toDateStr } from "@/components/ChakriGajarTypes";
 import { Counter } from "@/components/Counter";
 import { EnhancedDashboard } from "@/components/EnhancedDashboard";
 import { ChakriGajar } from "@/components/ChakriGajar";
@@ -19,6 +21,7 @@ const Index = () => {
     return !splashShown;
   });
   const [activeTab, setActiveTab] = useState<"counter" | "dashboard" | "chakri" | "calendar" | "settings">("counter");
+  const [hasActiveSlot, setHasActiveSlot] = useState(false);
   const { user, loading, signOut } = useAuth();
   const { getText } = useJapa();
   const navigate = useNavigate();
@@ -45,6 +48,27 @@ const Index = () => {
       navigate('/auth');
     }
   }, [user, loading, navigate]);
+
+  // Check for an active Chakri Gajar slot RIGHT NOW (IST) on mount and on user change.
+  // This runs independently of which tab is active so the green dot shows even after refresh.
+  useEffect(() => {
+    if (!user) { setHasActiveSlot(false); return; }
+    const check = async () => {
+      const istNow = getISTNow();
+      const { data } = await supabase
+        .from("cg_bookings")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("date", toDateStr(istNow))
+        .eq("hour", istNow.getHours())
+        .limit(1);
+      setHasActiveSlot((data?.length ?? 0) > 0);
+    };
+    check();
+    // Re-check every 5 minutes so the dot clears automatically when the slot ends
+    const interval = setInterval(check, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   if (loading) {
     return (
@@ -73,7 +97,7 @@ const Index = () => {
       case "dashboard":
         return <EnhancedDashboard />;
       case "chakri":
-        return <ChakriGajar />;
+        return <ChakriGajar onActiveSlotChange={setHasActiveSlot} />;
       case "calendar":
         return <Calendar />;
       case "settings":
@@ -112,7 +136,7 @@ const Index = () => {
       </div>
 
       {/* Bottom Navigation */}
-      <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+      <BottomNav activeTab={activeTab} onTabChange={setActiveTab} hasActiveSlot={hasActiveSlot} />
     </div>
   );
 };
