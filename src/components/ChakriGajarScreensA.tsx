@@ -68,7 +68,7 @@ export const HomeScreen = ({ groups, onNavigate, onNewGroup, onGoToToday }: {
                     Code: <span className="font-bold text-primary tracking-widest">{g.code}</span>
                   </div>
                   <div className="text-xs text-secondary mt-0.5">
-                    {(g.totalJaap ?? 0).toLocaleString()} total jaaps
+                    {((g.totalJaap ?? 0) / 108).toFixed(1)} total malas
                   </div>
                 </div>
                 <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
@@ -147,22 +147,7 @@ export const CreateGroupScreen = ({ onBack, onCreate, onJoin, loading }: {
 
       {mode === "create" ? (
         <>
-          <Card className="spiritual-card">
-            <CardHeader>
-              <CardTitle className="flex items-center text-base">
-                <Upload className="mr-2 h-4 w-4 text-primary" />
-                Group Image
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:bg-muted/20 transition-colors">
-                <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">Click to upload group image</p>
-                <p className="text-xs text-muted-foreground mt-1">PNG, JPG up to 5MB</p>
-              </div>
-            </CardContent>
-          </Card>
-
+          
           <Card className="spiritual-card">
             <CardContent className="space-y-4 pt-4">
               <div className="space-y-2">
@@ -193,16 +178,6 @@ export const CreateGroupScreen = ({ onBack, onCreate, onJoin, loading }: {
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">Share this code to invite members.</p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="group-desc">Description</Label>
-                <textarea
-                  id="group-desc"
-                  className="w-full min-h-[80px] px-3 py-2 rounded-md border border-input bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
-                  placeholder="What is this group about?"
-                  value={desc}
-                  onChange={e => setDesc(e.target.value)}
-                />
               </div>
             </CardContent>
           </Card>

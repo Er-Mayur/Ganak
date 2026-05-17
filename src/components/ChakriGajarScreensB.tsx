@@ -38,7 +38,7 @@ export const GroupDetailsScreen = ({ group, events, members, isAdmin, todayStr, 
               <p className="text-sm text-muted-foreground mt-0.5">
                 Code: <span className="font-bold text-primary tracking-widest">{group.code}</span>
               </p>
-              <p className="text-sm text-secondary mt-0.5">{(group.totalJaap ?? 0).toLocaleString()} Total Jaaps</p>
+              <p className="text-sm text-secondary mt-0.5">{Math.floor((group.totalJaap ?? 0) / 108).toLocaleString()} Total Malas</p>
             </div>
           </div>
         </CardContent>
@@ -143,7 +143,7 @@ export const GroupDetailsScreen = ({ group, events, members, isAdmin, todayStr, 
       {tab === "stats" && (
         <div className="grid grid-cols-2 gap-4">
           {[
-            ["Total Jaaps", (group.totalJaap ?? 0).toLocaleString(), "text-primary"],
+            ["Total Malas", Math.floor((group.totalJaap ?? 0) / 108).toLocaleString(), "text-primary"],
             ["Members", members.length.toString(), "text-secondary"],
             ["Sessions", events.length.toString(), "text-accent"],
             ["Admins", members.filter(m => m.role === "admin").length.toString(), "text-orange-500"],

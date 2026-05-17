@@ -75,6 +75,18 @@ export const ChakriGajar = ({ onActiveSlotChange }: { onActiveSlotChange?: (acti
         const ev = todayMap.get(g.id);
         if (ev) { g.todayEventId = ev.id; g.todayEventDate = ev.date; }
       });
+
+      // Fetch total jaaps per group (all time) to display on group cards
+      const { data: jaapTotals } = await supabase
+        .from("cg_bookings")
+        .select("group_id, jaaps")
+        .in("group_id", groupIds);
+      // Aggregate client-side: SUM(jaaps) per group_id
+      const jaapMap = new Map<string, number>();
+      (jaapTotals || []).forEach(b => {
+        jaapMap.set(b.group_id, (jaapMap.get(b.group_id) ?? 0) + (b.jaaps || 0));
+      });
+      mapped.forEach(g => { g.totalJaap = jaapMap.get(g.id) ?? 0; });
     }
 
     setGroups(mapped);

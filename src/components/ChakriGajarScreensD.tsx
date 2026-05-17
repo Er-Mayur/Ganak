@@ -177,24 +177,24 @@ export const CgCounterScreen = ({ onBack, bookingId, eventId, initialCount }: {
         </div>
       )}
 
-
-      <div className="w-full max-w-md space-y-6" onClick={(e) => e.stopPropagation()}>
-        {/* Back + saving */}
-        <div className="flex items-center gap-3">
+      {/* Content — no stopPropagation here so taps bubble up to the outer inc() handler */}
+      <div className="w-full max-w-md space-y-6">
+        {/* Back + saving — stop propagation so Back doesn't also count */}
+        <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
           <Button variant="ghost" size="sm" onClick={onBack} className="px-2">&#8592; Back</Button>
           {saving && <span className="text-xs text-muted-foreground animate-pulse">Saving...</span>}
         </div>
-        {/* Header */}
-      <PageHeader 
-        title={""} 
-        subtitle={""} 
-      />
-        {/* Deity Image */}
+
+        {/* Deity Image — taps here increment */}
         <div className="relative w-full">
           <img src={deityImage} alt="Deity" className="w-full h-auto rounded-lg shadow-2xl" />
+          {/* Ripple hint */}
+          <div className="absolute inset-0 rounded-lg flex items-center justify-center pointer-events-none">
+            <span className="text-white/20 text-6xl font-bold select-none">+</span>
+          </div>
         </div>
 
-        {/* Stats */}
+        {/* Stats — taps here also increment (same as normal counter) */}
         <div className="grid grid-cols-2 gap-4">
           <Card className="spiritual-card">
             <CardContent className="p-4 text-center">
@@ -218,6 +218,7 @@ export const CgCounterScreen = ({ onBack, bookingId, eventId, initialCount }: {
           </CardContent>
         </Card>
       </div>
+
     </div>
   );
 };
