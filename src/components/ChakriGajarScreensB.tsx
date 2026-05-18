@@ -77,13 +77,18 @@ export const GroupDetailsScreen = ({ group, events, eventStats = {}, members, is
     setShareText("cg-share-group-name", group.name);
     setShareText("cg-share-group-code", `${getText("कोड:", "Code:")} ${group.code}`);
     setShareText("cg-share-date", `${getText("तारीख:", "Date:")} ${formattedDate}`);
-    setShareText("cg-share-my-count", `${stats.myJaaps} ${getText("जाप", "Jaaps")}`);
-    setShareText("cg-share-group-total", `${stats.groupJaaps} ${getText("जाप", "Jaaps")}`);
+    const formatMala = (jaaps: number) =>
+      (jaaps / 108).toLocaleString(dateLocale, { maximumFractionDigits: 2 });
+    const myMala = formatMala(stats.myJaaps);
+    const groupMala = formatMala(stats.groupJaaps);
+
+    setShareText("cg-share-my-count", `${myMala} ${getText("माला", "Mala")}`);
+    setShareText("cg-share-group-total", `${groupMala} ${getText("माला", "Mala")}`);
 
     const shareTitle = getText("चक्री गजर", "Chakri Gajar");
     const shareText = getText(
-      `चक्री गजर | ${group.name} | ${formattedDate} | कोड: ${group.code} | मेरा जाप: ${stats.myJaaps} | समूह कुल: ${stats.groupJaaps}`,
-      `Chakri Gajar | ${group.name} | ${formattedDate} | Code: ${group.code} | My Jaaps: ${stats.myJaaps} | Group Total: ${stats.groupJaaps}`
+      `चक्री गजर | ${group.name} | ${formattedDate} | कोड: ${group.code} | मेरी माला: ${myMala} | समूह माला: ${groupMala}`,
+      `Chakri Gajar | ${group.name} | ${formattedDate} | Code: ${group.code} | My Malas: ${myMala} | Group Malas: ${groupMala}`
     );
 
     try {
@@ -191,11 +196,11 @@ export const GroupDetailsScreen = ({ group, events, eventStats = {}, members, is
           </div>
           <div className="grid grid-cols-2 gap-3 w-full">
             <div className="bg-white/5 p-3 rounded-lg text-center">
-              <div className="text-xs text-gray-400">{getText("मेरी गिनती", "My Count")}</div>
+              <div className="text-xs text-gray-400">{getText("मेरी माला", "My Malas")}</div>
               <div id="cg-share-my-count" className="text-2xl font-bold text-primary">0</div>
             </div>
             <div className="bg-white/5 p-3 rounded-lg text-center">
-              <div className="text-xs text-gray-400">{getText("समूह कुल", "Group Total")}</div>
+              <div className="text-xs text-gray-400">{getText("समूह माला", "Group Malas")}</div>
               <div id="cg-share-group-total" className="text-2xl font-bold text-secondary">0</div>
             </div>
           </div>
