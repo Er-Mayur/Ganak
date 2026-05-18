@@ -35,7 +35,7 @@ export const CgCounterScreen = ({ onBack, bookingId, eventId, initialCount }: {
 
   const { todayJaaps, incrementJaaps, setJaaps, getText } = useJapa();
 
-  // ── Group total (real-time) ──────────────────────────────────────────────
+  // ── Group total (real-time via Supabase Realtime — zero polling cost) ────────
   const refreshGroupTotal = useCallback(async () => {
     if (!eventId) return;
     const { data } = await supabase.from("cg_bookings").select("jaaps").eq("event_id", eventId);
@@ -43,10 +43,28 @@ export const CgCounterScreen = ({ onBack, bookingId, eventId, initialCount }: {
   }, [eventId]);
 
   useEffect(() => {
+    // Fetch once on mount
     refreshGroupTotal();
-    const interval = setInterval(refreshGroupTotal, 30_000);
-    return () => clearInterval(interval);
-  }, [refreshGroupTotal]);
+
+    // Subscribe to real-time changes on cg_bookings for this event
+    // This replaces the 30s poll (saves ~120 API calls/hour per user)
+    const channel = supabase
+      .channel(`cg_bookings_event_${eventId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "cg_bookings", filter: `event_id=eq.${eventId}` },
+        () => { refreshGroupTotal(); }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "cg_bookings", filter: `event_id=eq.${eventId}` },
+        () => { refreshGroupTotal(); }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [eventId, refreshGroupTotal]);
+
 
   // ── Debounced persist to cg_bookings ────────────────────────────────────
   const persistCount = useCallback((n: number) => {

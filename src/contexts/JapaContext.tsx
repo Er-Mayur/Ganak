@@ -267,78 +267,66 @@ export const JapaProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const syncPendingData = useCallback(async () => {
     if (!user) return;
-    
-    console.log("Checking for pending data to sync...");
-    
-    const promises = [];
-    
+
+    // Collect all local dates that have japa data
+    const localDates: { storageKey: string; formattedDate: string; localCount: number; localUpdatedAtRaw: string | null }[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (key && key.startsWith('japaCount_')) {
         const dateStr = key.replace('japaCount_', '');
         const localCount = parseInt(localStorage.getItem(key) || '0');
-        const localUpdatedAtRaw = localStorage.getItem(`japaUpdatedAt_${dateStr}`);
-        const localUpdatedAt = getUpdatedAtMs(localUpdatedAtRaw);
-        
         const date = new Date(dateStr);
         if (isNaN(date.getTime())) continue;
-        
-        const formattedDate = format(date, 'yyyy-MM-dd');
-        
-        promises.push(
-          supabase
-            .from('japa_sessions')
-            .select('taps, updated_at')
-            .eq('user_id', user.id)
-            .eq('date', formattedDate)
-            .maybeSingle()
-            .then(async ({ data: dbData, error }) => {
-              if (error) {
-                console.error(`Error checking DB for ${formattedDate}:`, error);
-                return;
-              }
-
-              const dbCount = dbData?.taps || 0;
-              const dbUpdatedAt = getUpdatedAtMs(dbData?.updated_at);
-              const localWins = localUpdatedAt > dbUpdatedAt;
-              const dbWins = dbUpdatedAt > localUpdatedAt;
-              
-              if (localWins || (!localUpdatedAt && localCount > dbCount)) {
-                // Local is newer, push to DB
-                const malas = Math.floor(localCount / 108);
-                const updatedAt = localUpdatedAtRaw && getUpdatedAtMs(localUpdatedAtRaw)
-                  ? localUpdatedAtRaw
-                  : new Date().toISOString();
-                const { error: upsertError } = await supabase
-                  .from('japa_sessions')
-                  .upsert({
-                    user_id: user.id,
-                    date: formattedDate,
-                    taps: localCount,
-                    japs: malas,
-                    updated_at: updatedAt,
-                  }, {
-                    onConflict: 'user_id,date'
-                  });
-                
-                if (upsertError) console.error(`Failed to sync ${formattedDate}:`, upsertError);
-                else console.log(`Synced ${formattedDate}: Pushed ${localCount} (DB was ${dbCount})`);
-                upsertSessionState(formattedDate, localCount, malas, updatedAt);
-                
-              } else if (dbWins || (localUpdatedAt && dbUpdatedAt && dbUpdatedAt === localUpdatedAt && dbCount !== localCount)) {
-                // DB is newer (or conflicting), update local and state
-                localStorage.setItem(key, dbCount.toString());
-                upsertSessionState(formattedDate, dbCount, Math.floor(dbCount / 108), dbData?.updated_at);
-                console.log(`Synced ${formattedDate}: Pulled ${dbCount} (Local was ${localCount})`);
-              } else {
-                console.log(`Synced ${formattedDate}: In sync (${localCount})`);
-              }
-            })
-        );
+        localDates.push({
+          storageKey: dateStr,
+          formattedDate: format(date, 'yyyy-MM-dd'),
+          localCount,
+          localUpdatedAtRaw: localStorage.getItem(`japaUpdatedAt_${dateStr}`),
+        });
       }
     }
-    
-    await Promise.all(promises);
+
+    if (localDates.length === 0) return;
+
+    // ONE batch query instead of N individual selects
+    const allFormattedDates = localDates.map(d => d.formattedDate);
+    const { data: dbRows, error } = await supabase
+      .from('japa_sessions')
+      .select('date, taps, updated_at')
+      .eq('user_id', user.id)
+      .in('date', allFormattedDates);
+
+    if (error) { console.error('Error fetching sessions for sync:', error); return; }
+
+    const dbMap = new Map((dbRows || []).map(r => [r.date, r]));
+    const upsertRows: { user_id: string; date: string; taps: number; japs: number; updated_at: string }[] = [];
+
+    for (const { storageKey, formattedDate, localCount, localUpdatedAtRaw } of localDates) {
+      const localUpdatedAt = getUpdatedAtMs(localUpdatedAtRaw);
+      const dbData = dbMap.get(formattedDate);
+      const dbCount = dbData?.taps || 0;
+      const dbUpdatedAt = getUpdatedAtMs(dbData?.updated_at);
+      const localWins = localUpdatedAt > dbUpdatedAt;
+      const dbWins = dbUpdatedAt > localUpdatedAt;
+
+      if (localWins || (!localUpdatedAt && localCount > dbCount)) {
+        const malas = Math.floor(localCount / 108);
+        const updatedAt = localUpdatedAtRaw && getUpdatedAtMs(localUpdatedAtRaw) ? localUpdatedAtRaw : new Date().toISOString();
+        upsertRows.push({ user_id: user.id, date: formattedDate, taps: localCount, japs: malas, updated_at: updatedAt });
+        upsertSessionState(formattedDate, localCount, malas, updatedAt);
+      } else if (dbWins) {
+        localStorage.setItem(`japaCount_${storageKey}`, dbCount.toString());
+        upsertSessionState(formattedDate, dbCount, Math.floor(dbCount / 108), dbData?.updated_at);
+      }
+    }
+
+    // Bulk upsert all local-wins in one call
+    if (upsertRows.length > 0) {
+      const { error: upsertError } = await supabase
+        .from('japa_sessions')
+        .upsert(upsertRows, { onConflict: 'user_id,date' });
+      if (upsertError) console.error('Bulk sync upsert failed:', upsertError);
+    }
   }, [user, upsertSessionState, getUpdatedAtMs]);
 
   useEffect(() => {
@@ -490,11 +478,13 @@ export const JapaProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       try {
-        // Fetch all sessions
+        // Fetch last 365 days only — enough for streak + stats, prevents unlimited growth
+        const since = format(new Date(Date.now() - 365 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd');
         const { data, error } = await supabase
           .from('japa_sessions')
           .select('date, taps, japs, updated_at')
           .eq('user_id', user.id)
+          .gte('date', since)
           .order('date', { ascending: false });
 
         if (error) throw error;

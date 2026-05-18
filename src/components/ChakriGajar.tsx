@@ -103,36 +103,52 @@ export const ChakriGajar = ({ onActiveSlotChange }: { onActiveSlotChange?: (acti
       created_by: row.cg_groups.created_by, role: row.role, totalJaap: 0,
     }));
 
-    // Always compute fresh IST date inside the function — avoids stale closure from midnight rollover
     const freshNow = getISTNow();
     const freshTodayStr = toDateStr(freshNow);
     const freshHour = freshNow.getHours();
-
-    // Fetch today's events for all groups in one query
     const groupIds = mapped.map(g => g.id);
+
     if (groupIds.length > 0) {
-      const { data: todayEvents } = await supabase
-        .from("cg_events")
-        .select("id, group_id, date")
-        .in("group_id", groupIds)
-        .eq("date", freshTodayStr);
-      const todayMap = new Map((todayEvents || []).map(e => [e.group_id, e]));
+      // Run all 3 secondary queries in PARALLEL — saves 2 round-trips vs sequential awaits
+      const [todayEventsResult, jaapTotalsResult, activeNowResult] = await Promise.all([
+        supabase.from("cg_events")
+          .select("id, group_id, date")
+          .in("group_id", groupIds)
+          .eq("date", freshTodayStr),
+
+        supabase.from("cg_bookings")
+          .select("group_id, jaaps")
+          .in("group_id", groupIds),
+
+        supabase.from("cg_bookings")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("date", freshTodayStr)
+          .eq("hour", freshHour)
+          .limit(1),
+      ]);
+
+      // Apply today's event IDs
+      const todayMap = new Map((todayEventsResult.data || []).map(e => [e.group_id, e]));
       mapped.forEach(g => {
         const ev = todayMap.get(g.id);
         if (ev) { g.todayEventId = ev.id; g.todayEventDate = ev.date; }
       });
 
-      // Fetch total jaaps per group (all time) to display on group cards
-      const { data: jaapTotals } = await supabase
-        .from("cg_bookings")
-        .select("group_id, jaaps")
-        .in("group_id", groupIds);
-      // Aggregate client-side: SUM(jaaps) per group_id
+      // Aggregate totalJaap per group client-side
       const jaapMap = new Map<string, number>();
-      (jaapTotals || []).forEach(b => {
+      (jaapTotalsResult.data || []).forEach(b => {
         jaapMap.set(b.group_id, (jaapMap.get(b.group_id) ?? 0) + (b.jaaps || 0));
       });
       mapped.forEach(g => { g.totalJaap = jaapMap.get(g.id) ?? 0; });
+
+      // Active slot check
+      const isActive = (activeNowResult.data?.length ?? 0) > 0;
+      setActiveSlotNow(isActive);
+      onActiveSlotChange?.(isActive);
+    } else {
+      setActiveSlotNow(false);
+      onActiveSlotChange?.(false);
     }
 
     setGroups(mapped);
@@ -143,26 +159,16 @@ export const ChakriGajar = ({ onActiveSlotChange }: { onActiveSlotChange?: (acti
       setSelectedGroup(mapped[0]);
       loadMembers(mapped[0].id);
     }
-
-    // Check if the user has an active booking RIGHT NOW (IST) — drives BottomNav green dot
-    // This runs on every loadGroups call (mount + every goHome) so the dot stays accurate
-    const { data: activeNow } = await supabase
-      .from("cg_bookings")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("date", freshTodayStr)
-      .eq("hour", freshHour)
-      .limit(1);
-    const isActive = (activeNow?.length ?? 0) > 0;
-    setActiveSlotNow(isActive);
-    onActiveSlotChange?.(isActive);
   };
 
   const loadEvents = async (groupId: string) => {
     if (!groupId) { setEvents([]); return; }
-    const { data } = await supabase.from("cg_events")
-      .select("id, group_id, date").eq("group_id", groupId).order("date", { ascending: true });
-    const eventList = data || [];
+    // Run event fetch and stats fetch in parallel
+    const [eventsResult] = await Promise.all([
+      supabase.from("cg_events")
+        .select("id, group_id, date").eq("group_id", groupId).order("date", { ascending: true }),
+    ]);
+    const eventList = eventsResult.data || [];
     setEvents(eventList);
     await loadEventStats(eventList);
   };
@@ -200,6 +206,7 @@ export const ChakriGajar = ({ onActiveSlotChange }: { onActiveSlotChange?: (acti
     const { data } = await supabase.from("cg_members").select("user_id, role").eq("group_id", groupId);
     if (!data || data.length === 0) { setMembers([]); return; }
     const userIds = data.map(m => m.user_id);
+    // Fetch profiles in parallel with no extra delay
     const { data: profiles } = await supabase.from("profiles").select("user_id, display_name").in("user_id", userIds);
     const profileMap = new Map((profiles || []).map(p => [p.user_id, p.display_name]));
     setMembers(data.map(m => ({ user_id: m.user_id, role: m.role, display_name: profileMap.get(m.user_id) ?? null })));
@@ -289,14 +296,16 @@ export const ChakriGajar = ({ onActiveSlotChange }: { onActiveSlotChange?: (acti
       !isPastSlot(selectedEvent.date, h, istNow)
     );
 
-    for (const hour of newHours) {
-      const { error } = await supabase.from("cg_bookings").insert({
+    if (newHours.length > 0) {
+      // BULK INSERT — single API call instead of N sequential inserts
+      const rows = newHours.map(hour => ({
         event_id: selectedEvent.id,
         group_id: selectedGroup.id,
         user_id: user.id,
         date: selectedEvent.date,
         hour,
-      });
+      }));
+      const { error } = await supabase.from("cg_bookings").insert(rows);
       if (error && error.code !== "23505") {
         console.error("Booking insert error:", error.message);
       }
