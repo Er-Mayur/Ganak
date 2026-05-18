@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -101,11 +101,6 @@ export const Calendar = () => {
     }
   };
 
-  const getDayColor = (date: Date) => {
-    // Removed color logic as per user request
-    return "";
-  };
-
   const selectedDateStr = format(selectedDate, "yyyy-MM-dd");
 
   const cgEventDates = useMemo(() => {
@@ -132,14 +127,16 @@ export const Calendar = () => {
     }, {} as Record<string, CgBooking[]>);
   }, [cgBookings]);
 
-  const loadCgEventsForMonth = async (focusDate: Date) => {
+  const loadCgEventsForMonth = useCallback(async (focusDate: Date) => {
     if (!user) return;
     const startDateStr = format(startOfMonth(focusDate), "yyyy-MM-dd");
     const endDateStr = format(endOfMonth(focusDate), "yyyy-MM-dd");
 
+    // cg_events has no FK to cg_groups in generated types (Relationships:[])
+    // so we cannot use cg_groups(name) in the select — fetch separately
     const { data, error } = await supabase
       .from("cg_events")
-      .select("id, group_id, date, cg_groups(name)")
+      .select("id, group_id, date")
       .gte("date", startDateStr)
       .lte("date", endDateStr)
       .order("date", { ascending: true });
@@ -149,16 +146,34 @@ export const Calendar = () => {
       return;
     }
 
-    setCgEvents((data || []) as CgEvent[]);
-  };
+    const events = data || [];
 
-  const loadCgBookingsForDate = async (dateStr: string) => {
+    // Fetch group names in a separate query and merge
+    const groupIds = [...new Set(events.map(e => e.group_id))];
+    let groupNameMap: Record<string, string> = {};
+    if (groupIds.length > 0) {
+      const { data: groupData } = await supabase
+        .from("cg_groups")
+        .select("id, name")
+        .in("id", groupIds);
+      (groupData || []).forEach(g => { groupNameMap[g.id] = g.name; });
+    }
+
+    setCgEvents(events.map(e => ({
+      ...e,
+      cg_groups: groupNameMap[e.group_id] ? { name: groupNameMap[e.group_id] } : undefined,
+    })));
+  }, [user]);
+
+  const loadCgBookingsForDate = useCallback(async (dateStr: string) => {
     if (!user) return;
     setCgBookingsLoading(true);
 
+    // Do NOT join cg_groups here — cg_bookings may not have a direct FK to cg_groups.
+    // Group names are already available from cgEvents which joins cg_groups correctly.
     const { data, error } = await supabase
       .from("cg_bookings")
-      .select("id, event_id, group_id, user_id, date, hour, jaaps, cg_groups(name)")
+      .select("id, event_id, group_id, user_id, date, hour, jaaps")
       .eq("date", dateStr)
       .order("hour", { ascending: true });
 
@@ -173,24 +188,18 @@ export const Calendar = () => {
     const bookings = (data || []) as CgBooking[];
     setCgBookings(bookings);
 
-    const userIds = Array.from(new Set(bookings.map((booking) => booking.user_id)));
+    const userIds = Array.from(new Set(bookings.map((b) => b.user_id)));
     if (userIds.length === 0) {
       setCgProfiles({});
       setCgBookingsLoading(false);
       return;
     }
 
-    const { data: profileData, error: profileError } = await supabase
+    // Profiles query may be blocked by RLS — treat failure as non-fatal
+    const { data: profileData } = await supabase
       .from("profiles")
       .select("user_id, display_name")
       .in("user_id", userIds);
-
-    if (profileError) {
-      console.error("Failed to load Chakri Gajar member names", profileError);
-      setCgProfiles({});
-      setCgBookingsLoading(false);
-      return;
-    }
 
     const profileMap: Record<string, string> = {};
     (profileData || []).forEach((profile) => {
@@ -200,7 +209,8 @@ export const Calendar = () => {
     });
     setCgProfiles(profileMap);
     setCgBookingsLoading(false);
-  };
+  }, [user]);
+
 
   const formatHourRange = (hour: number) => {
     const start = `${String(hour).padStart(2, "0")}:00`;
@@ -224,21 +234,14 @@ export const Calendar = () => {
   const selectedCgEvents = cgEventsByDate[selectedDateStr] || [];
 
   useEffect(() => {
-    if (!user) {
-      setCgEvents([]);
-      return;
-    }
+    if (!user) { setCgEvents([]); return; }
     loadCgEventsForMonth(currentDate);
-  }, [user, currentDate]);
+  }, [user, currentDate, loadCgEventsForMonth]);
 
   useEffect(() => {
-    if (!user) {
-      setCgBookings([]);
-      setCgProfiles({});
-      return;
-    }
+    if (!user) { setCgBookings([]); setCgProfiles({}); return; }
     loadCgBookingsForDate(selectedDateStr);
-  }, [user, selectedDateStr]);
+  }, [user, selectedDateStr, loadCgBookingsForDate]);
 
   if (loading) {
     return (
@@ -313,7 +316,6 @@ export const Calendar = () => {
                   relative h-16 flex flex-col items-center justify-center cursor-pointer rounded-lg transition-all duration-200
                   ${!isSameMonth(day, currentDate) ? 'text-muted-foreground/50' : 'text-foreground'}
                   ${isSameDay(day, selectedDate) ? 'bg-primary text-primary-foreground shadow-md' : 'hover:bg-primary/10'}
-                  ${getDayColor(day)}
                 `}
                 onClick={() => setSelectedDate(day)}
                 onMouseDown={() => startLongPress(day)}

@@ -1,4 +1,4 @@
-import { Home, BarChart3, Settings, Calendar, Users } from "lucide-react";
+import { Home, BarChart3, Settings, Calendar, Webhook } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useJapa } from "@/contexts/JapaContext";
 
@@ -28,7 +28,7 @@ export const BottomNav = ({ activeTab, onTabChange, hasActiveSlot }: BottomNavPr
       id: "chakri" as const,
       label: getText("चक्री गजर", "Chakri Gajar"),
       shortLabel: getText("चक्र", "Chakri"),
-      icon: Users,
+      icon: Webhook,
     },
     {
       id: "calendar" as const,
@@ -50,7 +50,7 @@ export const BottomNav = ({ activeTab, onTabChange, hasActiveSlot }: BottomNavPr
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
-          const displayLabel = settings.language === 'both' ? item.shortLabel : item.label;
+          const displayLabel = item.label;
           
           return (
             <Button

@@ -29,7 +29,7 @@ const Auth = () => {
     password: "",
     displayName: ""
   });
-  const { signIn, signUp, resetPassword, updatePassword } = useAuth();
+  const { signIn, signUp, resetPassword, updatePassword, user, loading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
@@ -53,6 +53,14 @@ const Auth = () => {
     }
   }, [location.hash, location.search]);
 
+  // Redirect already-authenticated users away from auth page
+  // Exception: password recovery flow — user may be logged in via the recovery token
+  useEffect(() => {
+    if (!loading && user && !isRecovery) {
+      navigate("/", { replace: true });
+    }
+  }, [user, loading, isRecovery, navigate]);
+
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === "PASSWORD_RECOVERY") {
@@ -62,6 +70,15 @@ const Auth = () => {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Show spinner while auth state is loading to prevent form flash before redirect
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-spiritual flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPasswordData(prev => ({

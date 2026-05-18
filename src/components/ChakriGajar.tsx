@@ -3,14 +3,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useJapa } from "@/contexts/JapaContext";
 
-import { CgGroup, CgEvent, CgBooking, CgMember, CgScreen, generateCode, getISTNow, toDateStr, isPastSlot } from "./ChakriGajarTypes";
+import { CgGroup, CgEvent, CgBooking, CgMember, CgScreen, CgEventStats, generateCode, getISTNow, toDateStr, isPastSlot } from "./ChakriGajarTypes";
 import { HomeScreen, CreateGroupScreen } from "./ChakriGajarScreensA";
 import { GroupDetailsScreen, ScheduleListScreen } from "./ChakriGajarScreensB";
 import { CgCounterScreen, CgCalendarScreen, CgDatePickerModal, ScheduleSummaryScreen } from "./ChakriGajarScreensD";
 
 export const ChakriGajar = ({ onActiveSlotChange }: { onActiveSlotChange?: (active: boolean) => void }) => {
   const { user } = useAuth();
-  const { incrementJaaps } = useJapa();
+  const { incrementJaaps, getText } = useJapa();
 
   const [screen, setScreen] = useState<CgScreen>("home");
   const [selectedCalDate, setSelectedCalDate] = useState<string>("");
@@ -18,6 +18,7 @@ export const ChakriGajar = ({ onActiveSlotChange }: { onActiveSlotChange?: (acti
 
   const [groups, setGroups] = useState<CgGroup[]>([]);
   const [events, setEvents] = useState<CgEvent[]>([]);
+  const [eventStats, setEventStats] = useState<Record<string, CgEventStats>>({});
   const [bookings, setBookings] = useState<CgBooking[]>([]);
   const [members, setMembers] = useState<CgMember[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<CgGroup | null>(null);
@@ -44,6 +45,51 @@ export const ChakriGajar = ({ onActiveSlotChange }: { onActiveSlotChange?: (acti
   const isAdmin = selectedGroup?.role === "admin";
 
   // ── Data Loaders ───────────────────────────────────────────────────────────
+  const buildEventStats = (eventBookings: CgBooking[]): CgEventStats => {
+    const stats: CgEventStats = { myJaaps: 0, groupJaaps: 0, hasBooking: false };
+    for (const booking of eventBookings) {
+      const jaaps = booking.jaaps || 0;
+      stats.groupJaaps += jaaps;
+      if (booking.user_id === user?.id) {
+        stats.myJaaps += jaaps;
+        stats.hasBooking = true;
+      }
+    }
+    return stats;
+  };
+
+  const loadEventStats = async (eventList: CgEvent[]) => {
+    if (!user) return;
+    if (eventList.length === 0) {
+      setEventStats({});
+      return;
+    }
+    const eventIds = eventList.map(e => e.id);
+    const { data, error } = await supabase
+      .from("cg_bookings")
+      .select("event_id, user_id, jaaps")
+      .in("event_id", eventIds);
+    if (error) {
+      console.error("Failed to load event stats:", error.message);
+      return;
+    }
+
+    const statsMap: Record<string, CgEventStats> = {};
+    eventList.forEach(ev => {
+      statsMap[ev.id] = { myJaaps: 0, groupJaaps: 0, hasBooking: false };
+    });
+    (data || []).forEach((row: any) => {
+      const stats = statsMap[row.event_id];
+      if (!stats) return;
+      const jaaps = row.jaaps || 0;
+      stats.groupJaaps += jaaps;
+      if (row.user_id === user.id) {
+        stats.myJaaps += jaaps;
+        stats.hasBooking = true;
+      }
+    });
+    setEventStats(statsMap);
+  };
   const loadGroups = async (preferredId?: string) => {
     if (!user) return;
     const { data, error } = await supabase
@@ -116,7 +162,9 @@ export const ChakriGajar = ({ onActiveSlotChange }: { onActiveSlotChange?: (acti
     if (!groupId) { setEvents([]); return; }
     const { data } = await supabase.from("cg_events")
       .select("id, group_id, date").eq("group_id", groupId).order("date", { ascending: true });
-    setEvents(data || []);
+    const eventList = data || [];
+    setEvents(eventList);
+    await loadEventStats(eventList);
   };
 
   const loadBookings = async (eventId: string, date?: string) => {
@@ -126,6 +174,7 @@ export const ChakriGajar = ({ onActiveSlotChange }: { onActiveSlotChange?: (acti
       .eq("event_id", eventId).order("hour", { ascending: true });
     const fetched = data || [];
     setBookings(fetched);
+    setEventStats(prev => ({ ...prev, [eventId]: buildEventStats(fetched) }));
     // Check if user has an active slot RIGHT NOW in these bookings
     const isActive = fetched.some(b => b.user_id === user?.id && b.date === todayStr && b.hour === currentHour);
     setActiveSlotNow(isActive);
@@ -313,6 +362,7 @@ export const ChakriGajar = ({ onActiveSlotChange }: { onActiveSlotChange?: (acti
             group={selectedGroup} events={events} members={members} isAdmin={isAdmin}
             todayStr={todayStr}
             onBack={goHome} onNavigate={navigate} onSchedule={handleCreateEvent}
+             eventStats={eventStats}
           />
           {showDatePicker && (
             <CgDatePickerModal
@@ -357,8 +407,10 @@ export const ChakriGajar = ({ onActiveSlotChange }: { onActiveSlotChange?: (acti
       ) : (
         // No active booking — go back
         <div className="p-6 text-center text-muted-foreground">
-          <p>No active booking for this hour.</p>
-          <button onClick={() => setScreen(counterOrigin)} className="mt-4 underline text-sm">Go back</button>
+          <p>{getText("इस घंटे के लिए कोई बुकिंग नहीं है।", "No active booking for this hour.")}</p>
+          <button onClick={() => setScreen(counterOrigin)} className="mt-4 underline text-sm">
+            {getText("वापस जाएं", "Go back")}
+          </button>
         </div>
       );
 

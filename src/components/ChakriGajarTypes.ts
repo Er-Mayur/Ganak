@@ -24,6 +24,12 @@ export interface CgEvent {
   date: string;
 }
 
+export interface CgEventStats {
+  myJaaps: number;
+  groupJaaps: number;
+  hasBooking: boolean;
+}
+
 export interface CgBooking {
   id: string;
   event_id: string;

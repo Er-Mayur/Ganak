@@ -181,8 +181,14 @@ export const CgCounterScreen = ({ onBack, bookingId, eventId, initialCount }: {
       <div className="w-full max-w-md space-y-6">
         {/* Back + saving — stop propagation so Back doesn't also count */}
         <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
-          <Button variant="ghost" size="sm" onClick={onBack} className="px-2">&#8592; Back</Button>
-          {saving && <span className="text-xs text-muted-foreground animate-pulse">Saving...</span>}
+          <Button variant="ghost" size="sm" onClick={onBack} className="px-2">
+            {getText("← वापस", "← Back")}
+          </Button>
+          {saving && (
+            <span className="text-xs text-muted-foreground animate-pulse">
+              {getText("सेव हो रहा है...", "Saving...")}
+            </span>
+          )}
         </div>
         {/* Header */}
       <PageHeader 
@@ -192,7 +198,7 @@ export const CgCounterScreen = ({ onBack, bookingId, eventId, initialCount }: {
 
         {/* Deity Image — taps here increment */}
         <div className="relative w-full">
-          <img src={deityImage} alt="Deity" className="w-full h-auto rounded-lg shadow-2xl" />
+          <img src={deityImage} alt={getText("देवता", "Deity")} className="w-full h-auto rounded-lg shadow-2xl" />
           {/* Ripple hint */}
           <div className="absolute inset-0 rounded-lg flex items-center justify-center pointer-events-none">
             <span className="text-white/20 text-6xl font-bold select-none">+</span>
@@ -204,13 +210,13 @@ export const CgCounterScreen = ({ onBack, bookingId, eventId, initialCount }: {
           <Card className="spiritual-card">
             <CardContent className="p-4 text-center">
               <div className="text-3xl font-bold text-primary mb-1">{count}</div>
-              <div className="text-sm text-muted-foreground">Your Count</div>
+              <div className="text-sm text-muted-foreground">{getText("आपकी गिनती", "Your Count")}</div>
             </CardContent>
           </Card>
           <Card className="spiritual-card">
             <CardContent className="p-4 text-center">
               <div className="text-3xl font-bold text-secondary mb-1">{groupTotal.toLocaleString()}</div>
-              <div className="text-sm text-muted-foreground">Group Total</div>
+              <div className="text-sm text-muted-foreground">{getText("समूह कुल", "Group Total")}</div>
             </CardContent>
           </Card>
         </div>
@@ -218,7 +224,10 @@ export const CgCounterScreen = ({ onBack, bookingId, eventId, initialCount }: {
         <Card className="spiritual-card">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground text-center">
-              Tap anywhere to count. Changes sync to your normal counter automatically.
+              {getText(
+                "गिनती बढ़ाने के लिए कहीं भी टैप करें। यह आपकी सामान्य गिनती के साथ अपने आप सिंक हो जाएगी।",
+                "Tap anywhere to count. Changes sync to your normal counter automatically."
+              )}
             </p>
           </CardContent>
         </Card>
@@ -235,6 +244,8 @@ export const CgDatePickerModal = ({ scheduledDates, onSelect, onClose }: {
   onSelect: (date: string) => void;
   onClose: () => void;
 }) => {
+  const { getText, settings } = useJapa();
+  const dateLocale = settings.language === "hi" ? "hi-IN" : "en-IN";
   const istToday = getISTNow();
   const todayStr = toDateStr(istToday);
   const [viewYear, setViewYear] = useState(istToday.getFullYear());
@@ -243,7 +254,7 @@ export const CgDatePickerModal = ({ scheduledDates, onSelect, onClose }: {
 
   const firstDay = new Date(viewYear, viewMonth, 1).getDay();
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
-  const monthName = new Date(viewYear, viewMonth).toLocaleString("en-IN", { month: "long", year: "numeric" });
+  const monthName = new Date(viewYear, viewMonth).toLocaleString(dateLocale, { month: "long", year: "numeric" });
   const fmt = (d: number) =>
     `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 
@@ -261,7 +272,7 @@ export const CgDatePickerModal = ({ scheduledDates, onSelect, onClose }: {
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-border/40">
-          <span className="text-base font-semibold text-foreground">Select Date</span>
+          <span className="text-base font-semibold text-foreground">{getText("तारीख चुनें", "Select Date")}</span>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors text-lg leading-none">&times;</button>
         </div>
 
@@ -285,7 +296,15 @@ export const CgDatePickerModal = ({ scheduledDates, onSelect, onClose }: {
 
           {/* Day labels */}
           <div className="grid grid-cols-7 gap-1">
-            {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map(d => (
+            {[
+              getText("र", "Su"),
+              getText("सो", "Mo"),
+              getText("मं", "Tu"),
+              getText("बु", "We"),
+              getText("गु", "Th"),
+              getText("शु", "Fr"),
+              getText("श", "Sa"),
+            ].map(d => (
               <div key={d} className="text-center text-xs text-muted-foreground font-semibold py-1">{d}</div>
             ))}
           </div>
@@ -336,15 +355,15 @@ export const CgDatePickerModal = ({ scheduledDates, onSelect, onClose }: {
           <div className="flex items-center gap-4 pt-1 border-t border-border/30">
             <div className="flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-primary" />
-              <span className="text-xs text-muted-foreground">Today</span>
+              <span className="text-xs text-muted-foreground">{getText("आज", "Today")}</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-primary/40" />
-              <span className="text-xs text-muted-foreground">Scheduled</span>
+              <span className="text-xs text-muted-foreground">{getText("निर्धारित", "Scheduled")}</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-muted-foreground/30" />
-              <span className="text-xs text-muted-foreground">Past / Unavailable</span>
+              <span className="text-xs text-muted-foreground">{getText("पिछला / अनुपलब्ध", "Past / Unavailable")}</span>
             </div>
           </div>
         </div>
@@ -359,6 +378,8 @@ export const CgCalendarScreen = ({ scheduledDates, completedDates, onDateSelect,
   scheduledDates: string[]; completedDates: string[];
   onDateSelect: (d: string) => void; onBack: () => void;
 }) => {
+  const { getText, settings } = useJapa();
+  const dateLocale = settings.language === "hi" ? "hi-IN" : "en-IN";
   const istToday = getISTNow();
   const [viewYear, setViewYear] = useState(istToday.getFullYear());
   const [viewMonth, setViewMonth] = useState(istToday.getMonth());
@@ -366,7 +387,7 @@ export const CgCalendarScreen = ({ scheduledDates, completedDates, onDateSelect,
 
   const firstDay = new Date(viewYear, viewMonth, 1).getDay();
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
-  const monthName = new Date(viewYear, viewMonth).toLocaleString("en-IN", { month: "long", year: "numeric" });
+  const monthName = new Date(viewYear, viewMonth).toLocaleString(dateLocale, { month: "long", year: "numeric" });
 
   const fmt = (d: number) =>
     `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
@@ -379,10 +400,15 @@ export const CgCalendarScreen = ({ scheduledDates, completedDates, onDateSelect,
   return (
     <div className="p-6 space-y-6 max-w-2xl mx-auto pb-24">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={onBack} className="px-2">&#8592; Back</Button>
+        <Button variant="ghost" size="sm" onClick={onBack} className="px-2">
+          {getText("← वापस", "← Back")}
+        </Button>
       </div>
 
-      <PageHeader title="Chakri Gajar Calendar" subtitle="Scheduled and completed sessions" />
+      <PageHeader
+        title={getText("चक्री गजर कैलेंडर", "Chakri Gajar Calendar")}
+        subtitle={getText("निर्धारित और पूर्ण सत्र", "Scheduled and completed sessions")}
+      />
 
       <Card className="spiritual-card">
         <CardContent className="p-4 space-y-4">
@@ -395,7 +421,15 @@ export const CgCalendarScreen = ({ scheduledDates, completedDates, onDateSelect,
 
           {/* Day labels */}
           <div className="grid grid-cols-7 gap-1">
-            {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map(d => (
+            {[
+              getText("र", "Su"),
+              getText("सो", "Mo"),
+              getText("मं", "Tu"),
+              getText("बु", "We"),
+              getText("गु", "Th"),
+              getText("शु", "Fr"),
+              getText("श", "Sa"),
+            ].map(d => (
               <div key={d} className="text-center text-xs text-muted-foreground font-semibold py-1">{d}</div>
             ))}
           </div>
@@ -434,7 +468,11 @@ export const CgCalendarScreen = ({ scheduledDates, completedDates, onDateSelect,
       {/* Legend */}
       <Card className="spiritual-card">
         <CardContent className="p-3 flex flex-wrap gap-4">
-          {[["Scheduled", "bg-primary"], ["Completed", "bg-green-500"], ["Today", "bg-primary/30"]].map(([label, cls]) => (
+          {[
+            [getText("निर्धारित", "Scheduled"), "bg-primary"],
+            [getText("पूर्ण", "Completed"), "bg-green-500"],
+            [getText("आज", "Today"), "bg-primary/30"],
+          ].map(([label, cls]) => (
             <div key={label} className="flex items-center gap-2">
               <span className={`h-2.5 w-2.5 rounded-full ${cls}`} />
               <span className="text-xs text-muted-foreground">{label}</span>
@@ -451,9 +489,11 @@ export const ScheduleSummaryScreen = ({ group, event, bookings, onBack, onViewFu
   group: CgGroup | null; event: CgEvent | null; bookings: CgBooking[];
   onBack: () => void; onViewFull: () => void;
 }) => {
+  const { getText, settings } = useJapa();
+  const dateLocale = settings.language === "hi" ? "hi-IN" : "en-IN";
   const date = event?.date ?? "";
   const dateLabel = date
-    ? new Date(date).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })
+    ? new Date(date).toLocaleDateString(dateLocale, { day: "numeric", month: "long", year: "numeric" })
     : "—";
 
   // Compute per-slot data from real bookings
@@ -471,10 +511,12 @@ export const ScheduleSummaryScreen = ({ group, event, bookings, onBack, onViewFu
   return (
     <div className="p-6 space-y-6 max-w-2xl mx-auto pb-24">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={onBack} className="px-2">&#8592; Back</Button>
+        <Button variant="ghost" size="sm" onClick={onBack} className="px-2">
+          {getText("← वापस", "← Back")}
+        </Button>
       </div>
 
-      <PageHeader title="Schedule Summary" subtitle={dateLabel} />
+      <PageHeader title={getText("शेड्यूल सारांश", "Schedule Summary")} subtitle={dateLabel} />
 
       {/* Group card */}
       <Card className="spiritual-card">
@@ -483,11 +525,11 @@ export const ScheduleSummaryScreen = ({ group, event, bookings, onBack, onViewFu
             <div>
               <div className="font-bold text-foreground text-base">{group?.name ?? "—"}</div>
               <div className="text-xs text-muted-foreground mt-0.5">
-                Code: <span className="font-bold text-primary tracking-widest">{group?.code ?? "—"}</span>
+                {getText("कोड:", "Code:")} <span className="font-bold text-primary tracking-widest">{group?.code ?? "—"}</span>
               </div>
             </div>
             <div className="text-right">
-              <div className="text-xs text-muted-foreground">Total booked</div>
+              <div className="text-xs text-muted-foreground">{getText("कुल बुकिंग", "Total booked")}</div>
               <div className="text-2xl font-bold text-primary">{totalMembers}</div>
             </div>
           </div>
@@ -497,7 +539,7 @@ export const ScheduleSummaryScreen = ({ group, event, bookings, onBack, onViewFu
       {/* Slot rows */}
       <Card className="spiritual-card">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Slot Summary</CardTitle>
+          <CardTitle className="text-base">{getText("स्लॉट सारांश", "Slot Summary")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           {slotData.map(sl => (
@@ -506,12 +548,12 @@ export const ScheduleSummaryScreen = ({ group, event, bookings, onBack, onViewFu
                 <div className="text-sm font-medium text-foreground">{sl.label}</div>
                 <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
                   <Users className="h-3 w-3" />
-                  {sl.members} participants
+                  {getText(`${sl.members} प्रतिभागी`, `${sl.members} participants`)}
                 </div>
               </div>
               <div className="text-right">
                 <div className="text-lg font-bold text-primary">{sl.jaaps.toLocaleString()}</div>
-                <div className="text-xs text-muted-foreground">jaaps</div>
+                <div className="text-xs text-muted-foreground">{getText("जाप", "jaaps")}</div>
               </div>
             </div>
           ))}
@@ -523,19 +565,19 @@ export const ScheduleSummaryScreen = ({ group, event, bookings, onBack, onViewFu
         <Card className="spiritual-card">
           <CardContent className="p-4 text-center">
             <div className="text-3xl font-bold text-primary mb-1">{totalJaaps.toLocaleString()}</div>
-            <div className="text-sm text-muted-foreground">Total Jaaps</div>
+            <div className="text-sm text-muted-foreground">{getText("कुल जाप", "Total Jaaps")}</div>
           </CardContent>
         </Card>
         <Card className="spiritual-card">
           <CardContent className="p-4 text-center">
             <div className="text-3xl font-bold text-secondary mb-1">{totalMembers}</div>
-            <div className="text-sm text-muted-foreground">Total Members</div>
+            <div className="text-sm text-muted-foreground">{getText("कुल सदस्य", "Total Members")}</div>
           </CardContent>
         </Card>
       </div>
 
       <Button variant="outline" className="w-full" size="lg" onClick={onViewFull}>
-        View Full Schedule
+        {getText("पूरा शेड्यूल देखें", "View Full Schedule")}
       </Button>
     </div>
   );

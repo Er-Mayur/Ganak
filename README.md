@@ -1,73 +1,177 @@
-# Welcome to your Lovable project
+# Ganak — Spiritual Practice Tracker
 
-## Project info
+A beautiful, mobile-first progressive web app for tracking your daily Japa (mantra chanting) practice, managing group chanting sessions (Chakri Gajar), and monitoring your spiritual progress over time.
 
-**URL**: https://lovable.dev/projects/a13f9593-5d8b-46a8-b063-c14fb4dd3b1b
+---
+Open (https://japa-counter-pied.vercel.app/)
 
-## How can I edit this code?
+## Features
 
-There are several ways of editing your application.
+### Japa Counter
+- **Full-screen tap to count** — tap anywhere on screen to increment your Japa count
+- **Mala tracking** — 1 mala = 108 Jaaps, displayed with progress ring
+- **Bilingual UI** — supports Hindi and English via the language toggle in Settings
+- **Dropdown menu** — reduce count, set count to a specific value, or reset
+- **Daily persistence** — counts are saved per day to Supabase
 
-**Use Lovable**
+### Chakri Gajar (Group Chanting System)
+A real-time group scheduling and counting system for coordinated Japa sessions.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/a13f9593-5d8b-46a8-b063-c14fb4dd3b1b) and start prompting.
+#### Group Management
+- Create a group (admin) or join an existing one with a unique code
+- Each group shows **Total Malas** (aggregated across all members, all time)
+- Members list with role display (Admin / Member)
 
-Changes made via Lovable will be committed automatically to this repo.
+#### Scheduling
+- Admin creates a schedule via an **IST-aware calendar date picker** (no past dates allowed)
+- Events are displayed with Today / Past / Upcoming status badges
+- Slots are 3-hour blocks covering a full 24-hour day (8 slots × 3 hours)
 
-**Use your preferred IDE**
+#### Slot Booking
+- Members book individual hours within a slot
+- **Cross-group overlap protection** — you cannot book the same hour in two groups simultaneously
+- **Past-hour guard** — hours that have already passed (IST) are greyed out and non-bookable
+- Visual status badges: `Live` · `Booked` · `Available` · `Other group` · `Past`
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+#### Live Indicator (Green Dot Navigation)
+- A pulsing green dot appears on the bottom nav when you have an active booking for the current IST hour
+- The dot cascades: Nav → Day → Active Slot — guiding you to your session
+- Refreshes every 5 minutes automatically (no manual reload needed)
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+#### Chakri Gajar Counter
+- **Full-screen tap to count** — identical UX to the normal Japa counter
+- Starts from your previously saved count (loaded from DB on open)
+- **Debounced DB writes** — rapid taps batch into a single write after 600ms to prevent race conditions
+- **Syncs to global Japa counter** — each tap increments your daily Japa total
+- Reduce / Set / Reset all sync both the slot count and the global counter
+- **Group Total** — live sum of all members' Jaaps for that session, refreshed every 30 seconds
 
-Follow these steps:
+### Dashboard
+- Today's count, weekly streaks, and historical progress charts
+- Spiritual milestones and achievement tracking
+
+### Calendar
+- Monthly calendar view with daily Japa counts
+- Visual indicators for practice consistency
+
+### Settings
+- Language toggle (Hindi / English)
+- Theme and display preferences
+- Account management
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Framework | React 18 + TypeScript |
+| Build tool | Vite |
+| UI components | shadcn/ui |
+| Styling | Tailwind CSS |
+| Backend / Auth | Supabase (PostgreSQL + Auth + Realtime) |
+| Icons | Lucide React |
+| Routing | React Router DOM |
+
+---
+
+## Project Structure
+
+```
+src/
+├── components/
+│   ├── ChakriGajar.tsx          # Orchestrator — state machine & DB interactions
+│   ├── ChakriGajarTypes.ts      # Shared types, IST utilities (getISTNow, toDateStr, isPastSlot)
+│   ├── ChakriGajarScreensA.tsx  # Home screen, Create/Join group screens
+│   ├── ChakriGajarScreensB.tsx  # Group details, Schedule list, Slot booking UI
+│   ├── ChakriGajarScreensD.tsx  # Counter screen, Date picker modal, Calendar, Summary
+│   ├── Counter.tsx              # Normal Japa counter (full-screen tap)
+│   ├── EnhancedDashboard.tsx    # Stats and progress dashboard
+│   ├── Calendar.tsx             # Monthly calendar view
+│   ├── EnhancedSettings.tsx     # Settings screen
+│   ├── BottomNav.tsx            # Navigation bar with green dot indicator
+│   └── SplashScreen.tsx         # App launch splash
+├── contexts/
+│   ├── AuthContext.tsx           # Supabase auth state
+│   └── JapaContext.tsx           # Global Japa count, incrementJaaps, setJaaps
+├── pages/
+│   └── Index.tsx                # Root page — tab management, active-slot check on mount
+└── integrations/
+    └── supabase/                 # Supabase client and generated types
+```
+
+---
+
+## Database Schema (Supabase)
+
+| Table | Purpose |
+|---|---|
+| `profiles` | User display names |
+| `japa_counts` | Daily Japa counts per user |
+| `cg_groups` | Chakri Gajar groups |
+| `cg_members` | Group membership with roles (`admin` / `member`) |
+| `cg_events` | Scheduled chanting days per group |
+| `cg_bookings` | Individual hour bookings with `jaaps` count |
+
+**Key constraint:** `cg_bookings` has a unique index on `(user_id, date, hour)` to prevent double-booking across groups.
+
+---
+
+## Time Zone
+
+All scheduling logic uses **India Standard Time (IST / Asia/Kolkata, UTC+5:30)**.
+
+Key utilities in `ChakriGajarTypes.ts`:
+```ts
+getISTNow()          // Returns current Date in IST
+toDateStr(date)      // "YYYY-MM-DD" from any Date
+isPastSlot(date, hour, now)  // true if that hour has already passed in IST
+```
+
+> **Never use `new Date().toISOString()` for date comparisons** — at midnight IST, UTC is still the previous day.
+
+---
+
+## Getting Started
+
+### Prerequisites
+- Node.js ≥ 18
+- npm ≥ 9
+- A Supabase project with the schema above
+
+### Local Development
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
+# Clone the repo
 git clone <YOUR_GIT_URL>
+cd ganak
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+# Install dependencies
+npm install
 
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start the dev server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+### Environment
+Create a `.env.local` (or configure via your host) with your Supabase credentials:
+```
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+```
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+---
 
-**Use GitHub Codespaces**
+## Deployment
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+Open (https://japa-counter-pied.vercel.app/)
 
-## What technologies are used for this project?
+---
 
-This project is built with:
+## Key Design Decisions
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/a13f9593-5d8b-46a8-b063-c14fb4dd3b1b) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+- **IST-first** — all `new Date()` calls inside Chakri Gajar have been replaced with `getISTNow()` to avoid UTC midnight edge cases
+- **Debounced writes** — counter taps are batched (600ms) to avoid race conditions on rapid input
+- **Green dot lifecycle** — checked on mount via `Index.tsx` `useEffect` (independent of active tab), refreshed every 5 minutes
+- **Cross-group booking** — blocks are fetched fresh at booking time (not from stale React state) to prevent conflicts
+- **Self-managing counter** — `CgCounterScreen` owns its own DB writes and group-total polling; the orchestrator only passes `bookingId`, `eventId`, and `initialCount`
