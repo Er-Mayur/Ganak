@@ -104,7 +104,7 @@ export const GroupDetailsScreen = ({ group, events, eventStats = {}, members, is
       if (Capacitor.isNativePlatform()) {
         try {
           const base64Data = canvas.toDataURL("image/png");
-          const fileName = `cg-share-${event.date}-${Date.now()}.png`;
+          const fileName = `chakari-gajar-${event.date}-${Date.now()}.png`;
 
           const savedFile = await Filesystem.writeFile({
             path: fileName,
