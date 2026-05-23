@@ -32,6 +32,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useJapa } from "@/contexts/JapaContext";
+import { supabase } from "@/integrations/supabase/client";
 import deityImage from "@/assets/deity.jpg";
 import html2canvas from "html2canvas";
 import { useToast } from "@/hooks/use-toast";
@@ -40,7 +41,7 @@ import { Filesystem, Directory } from "@capacitor/filesystem";
 import { Capacitor } from "@capacitor/core";
 import {
   CgGroup, CgEvent, CgBooking, CgMember, CgScreen, CgEventStats,
-  SLOT_LABELS, HOUR_LABELS, HOUR_NEXT_LABELS, memberLabel, isPastSlot, getISTNow,
+  SLOT_LABELS, HOUR_LABELS, HOUR_NEXT_LABELS, memberLabel, isPastSlot, getISTNow, toDateStr,
 } from "./ChakriGajarTypes";
 
 const isShareCanceled = (error: unknown) =>
@@ -530,7 +531,7 @@ export const GroupDetailsScreen = ({ group, events, eventStats = {}, members, is
 };
 
 // ─── Schedule List with inline booking ────────────────────────────────────────
-export const ScheduleListScreen = ({ event, bookings, members, userId, currentHour, todayStr, loading, blockedHours = new Set(), onBack, onBook, onStartCounter }: {
+export const ScheduleListScreen = ({ event, bookings, members, userId, currentHour, todayStr, loading, blockedHours = new Set(), onBack, onBook, onStartCounter, onBookingCountChange }: {
   event: CgEvent;
   bookings: CgBooking[];
   members: CgMember[];
@@ -542,12 +543,17 @@ export const ScheduleListScreen = ({ event, bookings, members, userId, currentHo
   onBack: () => void;
   onBook: (hours: number[]) => Promise<void>;
   onStartCounter: () => void;
+  onBookingCountChange: (bookingId: string, eventId: string, nextCount: number) => void;
 }) => {
-  const { getText, settings } = useJapa();
+  const { getText, settings, adjustJaapsForDate } = useJapa();
+  const { toast } = useToast();
   const dateLocale = settings.language === "hi" ? "hi-IN" : "en-IN";
   const istNow = getISTNow(); // single snapshot for all past-hour checks this render
   const [expanded, setExpanded] = useState<number | null>(null);
   const [selected, setSelected] = useState<number[]>([]);
+  const [editBooking, setEditBooking] = useState<CgBooking | null>(null);
+  const [editMalas, setEditMalas] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
 
 
   const toggle = (i: number) => {
@@ -566,6 +572,118 @@ export const ScheduleListScreen = ({ event, bookings, members, userId, currentHo
   const dateLabel = new Date(event.date).toLocaleDateString(dateLocale, {
     day: "numeric", month: "long", year: "numeric",
   });
+  const editHourLabel = editBooking
+    ? `${HOUR_LABELS[editBooking.hour]}–${HOUR_NEXT_LABELS[editBooking.hour]}`
+    : "";
+  const myBookings = bookings
+    .filter(b => b.user_id === userId)
+    .slice()
+    .sort((a, b) => a.hour - b.hour);
+
+  const canEditDate = event.date <= todayStr;
+
+  // Max malas a user can realistically enter (sanity cap)
+  const MAX_MALAS = 10_000;
+
+  const openEdit = (booking: CgBooking) => {
+    const malas = Math.floor((booking.jaaps || 0) / 108);
+    setEditMalas(malas.toString());
+    setEditBooking(booking);
+  };
+
+  const closeEdit = () => {
+    if (editSaving) return;
+    setEditBooking(null);
+    setEditMalas("");
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editBooking) return;
+
+    // Fix 3: Re-validate date at save time (guards against midnight rollover race condition)
+    const freshTodayStr = toDateStr(getISTNow());
+    if (event.date > freshTodayStr) {
+      toast({
+        variant: "destructive",
+        title: getText("त्रुटि", "Error"),
+        description: getText(
+          "भविष्य की बुकिंग संपादित नहीं की जा सकती।",
+          "Future bookings cannot be edited."
+        ),
+      });
+      closeEdit();
+      return;
+    }
+
+    const parsed = parseInt(editMalas, 10);
+
+    // Fix 1: Upper-bound validation
+    if (Number.isNaN(parsed) || parsed < 0) {
+      toast({
+        variant: "destructive",
+        title: getText("अमान्य मान", "Invalid value"),
+        description: getText("कृपया मान्य माला दर्ज करें", "Please enter a valid mala count"),
+      });
+      return;
+    }
+    if (parsed > MAX_MALAS) {
+      toast({
+        variant: "destructive",
+        title: getText("बहुत अधिक", "Too many"),
+        description: getText(
+          `माला की संख्या ${MAX_MALAS.toLocaleString()} से अधिक नहीं हो सकती।`,
+          `Mala count cannot exceed ${MAX_MALAS.toLocaleString()}.`
+        ),
+      });
+      return;
+    }
+
+    // Fix 2: Confirm when resetting to 0 (destructive action)
+    if (parsed === 0 && (editBooking.jaaps || 0) > 0) {
+      const confirmed = window.confirm(
+        getText(
+          "क्या आप वाकई माला की गिनती 0 पर रीसेट करना चाहते हैं?",
+          "Are you sure you want to reset the mala count to 0?"
+        )
+      );
+      if (!confirmed) return;
+    }
+
+    const nextJaaps = parsed * 108;
+    const prevJaaps = editBooking.jaaps || 0;
+    const delta = nextJaaps - prevJaaps;
+    if (delta === 0) {
+      setEditBooking(null);
+      return;
+    }
+
+    setEditSaving(true);
+    try {
+      const { error } = await supabase
+        .from("cg_bookings")
+        .update({ jaaps: nextJaaps })
+        .eq("id", editBooking.id);
+      if (error) throw error;
+
+      onBookingCountChange(editBooking.id, editBooking.event_id, nextJaaps);
+      await adjustJaapsForDate(event.date, delta);
+      setEditBooking(null);
+      setEditMalas("");
+      toast({
+        title: getText("अपडेट हो गया", "Updated"),
+        description: getText("माला की गिनती सहेज ली गई।", "Mala count saved successfully."),
+      });
+    } catch (error) {
+      console.error("Failed to update booking count:", error);
+      toast({
+        variant: "destructive",
+        title: getText("त्रुटि", "Error"),
+        description: getText("गिनती अपडेट नहीं हो सकी", "Unable to update count"),
+      });
+    } finally {
+      setEditSaving(false);
+    }
+  };
 
   // Derive user's active booking — use todayStr (IST) not UTC new Date().toISOString()
   // At 00:25 IST, UTC is still the previous day; toISOString() would give yesterday's date
@@ -664,6 +782,52 @@ export const ScheduleListScreen = ({ event, bookings, members, userId, currentHo
               {getText("काउंटर शुरू करें", "Start Counter")}
             </Button>
 
+          </CardContent>
+        </Card>
+      )}
+
+      {myBookings.length > 0 && (
+        <Card className="spiritual-card">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center text-base">
+              <CheckSquare className="mr-2 h-4 w-4 text-primary" />
+              {getText("मेरी बुकिंग", "My Bookings")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {myBookings.map(b => {
+              const malas = Math.floor((b.jaaps || 0) / 108);
+              return (
+                <div key={b.id} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border/60 bg-muted/20">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-foreground">
+                      {HOUR_LABELS[b.hour]}–{HOUR_NEXT_LABELS[b.hour]}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {getText(`${malas} माला`, `${malas} malas`)}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary">{getText("बुक किया", "Booked")}</Badge>
+                    {canEditDate && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => openEdit(b)}
+                      >
+                        <Edit3 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            {!canEditDate && (
+              <p className="text-xs text-muted-foreground text-center">
+                {getText("भविष्य की बुकिंग संपादित नहीं की जा सकती।", "Future bookings cannot be edited.")}
+              </p>
+            )}
           </CardContent>
         </Card>
       )}
@@ -883,6 +1047,41 @@ export const ScheduleListScreen = ({ event, bookings, members, userId, currentHo
           );
         })}
       </div>
+
+      <Dialog open={Boolean(editBooking)} onOpenChange={(open) => { if (!open) closeEdit(); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{getText("माला संपादित करें", "Edit Malas")}</DialogTitle>
+          </DialogHeader>
+          <div className="text-sm text-muted-foreground">
+            <div>{dateLabel}</div>
+            {editHourLabel && <div>{editHourLabel}</div>}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="cg-edit-malas">{getText("माला", "Malas")}</Label>
+            <Input
+              id="cg-edit-malas"
+              type="number"
+              min={0}
+              max={10000}
+              step={1}
+              value={editMalas}
+              onChange={(e) => setEditMalas(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              {getText(`अधिकतम 10,000 माला`, `Maximum 10,000 malas`)}
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" type="button" onClick={closeEdit} disabled={editSaving}>
+              {getText("रद्द करें", "Cancel")}
+            </Button>
+            <Button type="button" onClick={handleSaveEdit} disabled={editSaving || !editMalas.trim()}>
+              {editSaving ? getText("सेव हो रहा है...", "Saving...") : getText("सहेजें", "Save")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

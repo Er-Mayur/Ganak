@@ -59,6 +59,7 @@ interface JapaContextType {
   incrementJaaps: () => void;
   setJaaps: (count: number) => void;
   updateSession: (date: Date, malas: number) => Promise<void>;
+  adjustJaapsForDate: (dateStr: string, deltaJaaps: number) => Promise<void>;
   updateSettings: (newSettings: Partial<AppSettings>) => void;
   getText: (hindi: string, english: string) => string;
 }
@@ -627,6 +628,49 @@ export const JapaProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user, upsertSessionState]);
 
+  const adjustJaapsForDate = useCallback(async (dateStr: string, deltaJaaps: number) => {
+    if (!dateStr || deltaJaaps === 0) return;
+
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    const storageKey = getStorageKey(dateStr);
+    let currentJaaps = 0;
+
+    if (dateStr === todayStr) {
+      currentJaaps = todayJaaps;
+    } else {
+      const historyEntry = history.find(h => h.date === dateStr);
+      if (historyEntry) {
+        currentJaaps = historyEntry.jaaps;
+      } else {
+        const localCount = localStorage.getItem(`japaCount_${storageKey}`);
+        currentJaaps = localCount ? parseInt(localCount, 10) || 0 : 0;
+      }
+    }
+
+    const nextJaaps = Math.max(0, currentJaaps + deltaJaaps);
+    const updatedAt = new Date().toISOString();
+    upsertSessionState(dateStr, nextJaaps, Math.floor(nextJaaps / 108), updatedAt);
+
+    if (user && navigator.onLine) {
+      try {
+        const { error } = await supabase
+          .from('japa_sessions')
+          .upsert({
+            user_id: user.id,
+            date: dateStr,
+            taps: nextJaaps,
+            japs: Math.floor(nextJaaps / 108),
+            updated_at: updatedAt,
+          }, {
+            onConflict: 'user_id,date'
+          });
+        if (error) throw error;
+      } catch (error) {
+        console.error('Error adjusting session:', error);
+      }
+    }
+  }, [getStorageKey, history, todayJaaps, upsertSessionState, user]);
+
   const updateSettings = useCallback((newSettings: Partial<AppSettings>) => {
     setSettings(prev => {
       const updated = { ...prev, ...newSettings };
@@ -743,6 +787,7 @@ export const JapaProvider: React.FC<{ children: React.ReactNode }> = ({ children
     incrementJaaps,
     setJaaps,
     updateSession,
+    adjustJaapsForDate,
     updateSettings,
     getText,
   };

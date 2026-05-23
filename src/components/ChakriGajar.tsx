@@ -486,6 +486,7 @@ export const ChakriGajar = ({ onActiveSlotChange }: { onActiveSlotChange?: (acti
           todayStr={todayStr}
           loading={loading}
           blockedHours={globalBlockedHours}
+          onBookingCountChange={handleBookingCountChange}
           onBack={() => navigate("groupDetails", selectedGroup)}
           onBook={handleBookHours}
           onStartCounter={() => {
