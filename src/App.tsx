@@ -21,6 +21,13 @@ const DeepLinkHandler = () => {
     const handleDeepLink = async (event: { url: string }) => {
       const url = event.url;
       if (url.includes("access_token") || url.includes("refresh_token")) {
+        // Prevent processing the same link multiple times (e.g. from cached launch url)
+        const storageKey = `consumed_url_${url}`;
+        if (localStorage.getItem(storageKey)) {
+          return;
+        }
+        localStorage.setItem(storageKey, "true");
+
         try {
           // Normalize url scheme for standard URL parsing
           const normalized = url.replace(/^[a-zA-Z0-9]+:\/\//, "https://");

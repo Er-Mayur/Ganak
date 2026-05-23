@@ -154,8 +154,8 @@ const Auth = () => {
       });
       setPasswordData({ newPassword: "", confirmPassword: "" });
       setIsRecovery(false);
-      window.history.replaceState({}, document.title, "/auth");
-      navigate("/");
+      window.location.hash = "";
+      navigate("/", { replace: true });
     }
 
     setIsUpdatingPassword(false);
