@@ -17,7 +17,8 @@ const Auth = () => {
     const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
     const searchParams = new URLSearchParams(window.location.search);
     const type = hashParams.get("type") || searchParams.get("type");
-    return type === "recovery";
+    const hasAccessToken = hashParams.get("access_token") || searchParams.get("access_token");
+    return type === "recovery" || !!hasAccessToken;
   });
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const [passwordData, setPasswordData] = useState({
