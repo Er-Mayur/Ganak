@@ -144,8 +144,8 @@ export const GroupDetailsScreen = ({ group, events, eventStats = {}, members, is
 
     const shareTitle = getText("चक्री गजर", "Chakri Gajar");
     const shareText = getText(
-      `चक्री गजर | ${group.name} | ${formattedDate} | कोड: ${group.code} | मेरी माला: ${myMala} | समूह माला: ${groupMala}`,
-      `Chakri Gajar | ${group.name} | ${formattedDate} | Code: ${group.code} | My Malas: ${myMala} | Group Malas: ${groupMala}`
+      `चक्री गजर | ${group.name} | ${formattedDate} | मेरी माला: ${myMala} | समूह माला: ${groupMala}`,
+      `Chakri Gajar | ${group.name} | ${formattedDate} | My Malas: ${myMala} | Group Malas: ${groupMala}`
     );
 
     try {
@@ -250,7 +250,6 @@ export const GroupDetailsScreen = ({ group, events, eventStats = {}, members, is
           </div>
           <div className="text-center space-y-2 w-full bg-white/5 p-4 rounded-lg backdrop-blur-sm">
             <h2 id="cg-share-group-name" className="text-xl text-gray-200 font-semibold">Group</h2>
-            <p id="cg-share-group-code" className="text-sm text-gray-300">Code</p>
             <p id="cg-share-date" className="text-sm text-gray-400">Date</p>
           </div>
           <div className="grid grid-cols-2 gap-3 w-full">
