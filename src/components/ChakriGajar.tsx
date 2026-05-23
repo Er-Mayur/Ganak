@@ -90,35 +90,82 @@ export const ChakriGajar = ({ onActiveSlotChange }: { onActiveSlotChange?: (acti
     });
     setEventStats(statsMap);
   };
+
+  const handleBookingCountChange = (bookingId: string, eventId: string, nextCount: number) => {
+    setBookings(prev => {
+      const updated = prev.map(b => b.id === bookingId ? { ...b, jaaps: nextCount } : b);
+      setEventStats(prevStats => ({ ...prevStats, [eventId]: buildEventStats(updated) }));
+      return updated;
+    });
+  };
   const loadGroups = async (preferredId?: string) => {
     if (!user) return;
-    const { data, error } = await supabase
+    const { data: membershipRows, error: membershipError } = await supabase
       .from("cg_members")
-      .select("role, cg_groups(id, name, code, created_by)")
+      .select("group_id, role")
       .eq("user_id", user.id);
-    if (error) return;
+    if (membershipError) {
+      console.error("Failed to load group memberships:", membershipError.message);
+      setGroups([]);
+      setActiveSlotNow(false);
+      onActiveSlotChange?.(false);
+      return;
+    }
 
-    const mapped: CgGroup[] = (data || []).map((row: any) => ({
-      id: row.cg_groups.id, name: row.cg_groups.name, code: row.cg_groups.code,
-      created_by: row.cg_groups.created_by, role: row.role, totalJaap: 0,
-    }));
+    const memberGroups = (membershipRows || []) as Array<{ group_id: string; role: string }>;
+    const groupIds = Array.from(new Set(memberGroups.map(m => m.group_id)));
+
+    if (groupIds.length === 0) {
+      setGroups([]);
+      setActiveSlotNow(false);
+      onActiveSlotChange?.(false);
+      return;
+    }
+
+    const { data: groupRows, error: groupError } = await supabase
+      .from("cg_groups")
+      .select("id, name, code, created_by")
+      .in("id", groupIds);
+    if (groupError) {
+      console.error("Failed to load groups:", groupError.message);
+      setGroups([]);
+      setActiveSlotNow(false);
+      onActiveSlotChange?.(false);
+      return;
+    }
+
+    const groupMap = new Map((groupRows || []).map((g: any) => [g.id, g]));
+    const mapped: CgGroup[] = memberGroups
+      .map((row) => {
+        const group = groupMap.get(row.group_id);
+        if (!group) return null;
+        return {
+          id: group.id,
+          name: group.name,
+          code: group.code,
+          created_by: group.created_by,
+          role: row.role,
+          totalJaap: 0,
+        };
+      })
+      .filter(Boolean) as CgGroup[];
 
     const freshNow = getISTNow();
     const freshTodayStr = toDateStr(freshNow);
     const freshHour = freshNow.getHours();
-    const groupIds = mapped.map(g => g.id);
+    const mappedGroupIds = mapped.map(g => g.id);
 
-    if (groupIds.length > 0) {
+    if (mappedGroupIds.length > 0) {
       // Run all 3 secondary queries in PARALLEL — saves 2 round-trips vs sequential awaits
       const [todayEventsResult, jaapTotalsResult, activeNowResult] = await Promise.all([
         supabase.from("cg_events")
           .select("id, group_id, date")
-          .in("group_id", groupIds)
+          .in("group_id", mappedGroupIds)
           .eq("date", freshTodayStr),
 
         supabase.from("cg_bookings")
           .select("group_id, jaaps")
-          .in("group_id", groupIds),
+          .in("group_id", mappedGroupIds),
 
         supabase.from("cg_bookings")
           .select("id")
@@ -242,6 +289,48 @@ export const ChakriGajar = ({ onActiveSlotChange }: { onActiveSlotChange?: (acti
       await loadGroups(data.id);
       setScreen("home");
     }
+    setLoading(false);
+  };
+
+  const handleUpdateGroupName = async (name: string) => {
+    if (!user || !selectedGroup || selectedGroup.role !== "admin") return;
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setLoading(true);
+    const groupId = selectedGroup.id;
+    const { error } = await supabase
+      .from("cg_groups")
+      .update({ name: trimmed })
+      .eq("id", groupId);
+    if (error) {
+      console.error("Failed to update group:", error.message);
+      setLoading(false);
+      return;
+    }
+    await loadGroups(groupId);
+    setLoading(false);
+  };
+
+  const handleDeleteGroup = async () => {
+    if (!user || !selectedGroup || selectedGroup.role !== "admin") return;
+    setLoading(true);
+    const groupId = selectedGroup.id;
+    const { error } = await supabase
+      .from("cg_groups")
+      .delete()
+      .eq("id", groupId);
+    if (error) {
+      console.error("Failed to delete group:", error.message);
+      setLoading(false);
+      return;
+    }
+    setSelectedGroup(null);
+    setSelectedEvent(null);
+    setEvents([]);
+    setBookings([]);
+    setMembers([]);
+    setScreen("home");
+    await loadGroups();
     setLoading(false);
   };
 
@@ -371,6 +460,9 @@ export const ChakriGajar = ({ onActiveSlotChange }: { onActiveSlotChange?: (acti
             group={selectedGroup} events={events} members={members} isAdmin={isAdmin}
             todayStr={todayStr}
             onBack={goHome} onNavigate={navigate} onSchedule={handleCreateEvent}
+            onEditGroup={handleUpdateGroupName}
+            onDeleteGroup={handleDeleteGroup}
+            loading={loading}
              eventStats={eventStats}
           />
           {showDatePicker && (
@@ -409,6 +501,7 @@ export const ChakriGajar = ({ onActiveSlotChange }: { onActiveSlotChange?: (acti
       return activeBooking ? (
         <CgCounterScreen
           onBack={() => setScreen(counterOrigin)}
+          onCountChange={(nextCount) => handleBookingCountChange(activeBooking.id, activeBooking.event_id, nextCount)}
           bookingId={activeBooking.id}
           eventId={activeBooking.event_id}
           initialCount={activeBooking.jaaps ?? 0}

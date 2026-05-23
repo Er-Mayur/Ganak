@@ -5,8 +5,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { 
-  Volume2, 
+import {
+  Volume2,
   Palette,
   Target,
   Mail
@@ -15,6 +15,7 @@ import { useJapa, AppSettings } from "@/contexts/JapaContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { PageHeader } from "./PageHeader";
+import { ChevronRight } from "lucide-react";
 
 export const EnhancedSettings = () => {
   const { settings, updateSettings, getText } = useJapa();
@@ -23,10 +24,11 @@ export const EnhancedSettings = () => {
   const [resetEmail, setResetEmail] = useState(user?.email || "");
   const [isResetting, setIsResetting] = useState(false);
 
+  const [contactExpanded, setContactExpanded] = useState(false);
   useEffect(() => {
     setResetEmail(user?.email || "");
   }, [user]);
-  
+
   const handleSettingChange = (key: keyof AppSettings, value: any) => {
     updateSettings({ [key]: value });
   };
@@ -63,9 +65,9 @@ export const EnhancedSettings = () => {
   return (
     <div className="p-6 space-y-6 max-w-2xl mx-auto pb-24">
       {/* Header */}
-      <PageHeader 
-        title={getText("उन्नत सेटिंग्स", "Advanced Settings")} 
-        subtitle={getText("अपने आध्यात्मिक अभ्यास को अनुकूलित करें", "Customize your spiritual practice")} 
+      <PageHeader
+        title={getText("उन्नत सेटिंग्स", "Advanced Settings")}
+        subtitle={getText("अपने आध्यात्मिक अभ्यास को अनुकूलित करें", "Customize your spiritual practice")}
       />
 
       {/* Targets Settings */}
@@ -89,7 +91,8 @@ export const EnhancedSettings = () => {
               value={settings.dailyTarget}
               onChange={(e) => {
                 const value = e.target.value;
-                handleSettingChange("dailyTarget", value);}}
+                handleSettingChange("dailyTarget", value);
+              }}
             />
           </div>
         </CardContent>
@@ -185,8 +188,8 @@ export const EnhancedSettings = () => {
               value={resetEmail}
               onChange={(e) => setResetEmail(e.target.value)}
               placeholder="you@example.com"
-              disabled={true} 
-              
+              disabled={true}
+
             />
           </div>
           <Button onClick={handleResetPassword} disabled={isResetting}>
@@ -205,31 +208,61 @@ export const EnhancedSettings = () => {
             <Mail className="mr-2 h-5 w-5 text-secondary" />
             {getText("संपर्क करें", "Contact Us")}
           </CardTitle>
+
           <CardDescription>
             {getText(
-              "हमें आपसे सुनना अच्छा लगेगा, चाहे वह प्रतिक्रिया, प्रश्न या सुझाव हो।",
-              "We would love to hear from you, whether it's a feedback, a question or even a suggestion."
+              "हमें आपसे सुनना अच्छा लगेगा",
+              "We would love to hear from you"
             )}
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          <div className="font-medium text-foreground">
-            {getText("सामान्य सहायता", "General Support")}
-          </div>
-          <div className="text-muted-foreground">
-            {getText("ईमेल", "Email")}: {" "}
-            <a
-              href="mailto:ambadnyatanay@gmail.com"
-              className="text-primary underline-offset-4 hover:underline"
-            >
-              ambadnyatanay@gmail.com
-            </a>
-          </div>
-          <div className="pt-2 text-muted-foreground space-y-1">
-            <div>Tanay Sinh Mahajan</div>
-            <div>Shivajinagar Upasana Kendra</div>
-            <div>Pune</div>
-          </div>
+
+        <CardContent>
+
+          <button
+            type="button"
+            onClick={() => setContactExpanded(!contactExpanded)}
+            className="w-full flex items-center justify-between p-2 text-left rounded-lg"
+          >
+            <span className="font-medium">
+              {getText("सामान्य सहायता", "General Support")}
+            </span>
+
+            <ChevronRight
+              className={`h-4 w-4 transition-transform ${contactExpanded ? "rotate-90" : ""
+                }`}
+            />
+          </button>
+
+
+          {contactExpanded && (
+            <div className="mt-4 space-y-2 text-sm pl-2">
+
+              <div className="text-muted-foreground">
+                {getText("ईमेल", "Email")}:
+                <a
+                  href="mailto:ambadnyatanay@gmail.com"
+                  className="ml-2 text-primary hover:underline"
+                >
+                  ambadnyatanay@gmail.com
+                </a>
+              </div>
+
+              <div className="text-muted-foreground">
+                Tanay Sinh Mahajan
+              </div>
+
+              <div className="text-muted-foreground">
+                Shivajinagar Upasana Kendra
+              </div>
+
+              <div className="text-muted-foreground">
+                Pune
+              </div>
+
+            </div>
+          )}
+
         </CardContent>
       </Card>
     </div>

@@ -52,6 +52,7 @@ export const Calendar = () => {
   const [cgBookings, setCgBookings] = useState<CgBooking[]>([]);
   const [cgProfiles, setCgProfiles] = useState<Record<string, string>>({});
   const [cgBookingsLoading, setCgBookingsLoading] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
   const navigateMonth = (direction: 'prev' | 'next') => {
     setCurrentDate(direction === 'prev' ? subMonths(currentDate, 1) : addMonths(currentDate, 1));
@@ -243,6 +244,10 @@ export const Calendar = () => {
     loadCgBookingsForDate(selectedDateStr);
   }, [user, selectedDateStr, loadCgBookingsForDate]);
 
+  useEffect(() => {
+    setExpandedGroups({});
+  }, [selectedDateStr]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -415,25 +420,40 @@ export const Calendar = () => {
                 {selectedCgEvents.map((event) => {
                   const groupName = event.cg_groups?.name || getText("समूह", "Group");
                   const groupBookings = cgBookingsByGroup[event.group_id] || [];
+                  const isExpanded = Boolean(expandedGroups[event.id]);
                   return (
-                    <div key={event.id} className="rounded-lg border border-border/60 p-3 space-y-2">
-                      <div className="text-sm font-semibold">{groupName}</div>
-                      {groupBookings.length === 0 ? (
-                        <div className="text-xs text-muted-foreground">
-                          {getText("अभी कोई बुकिंग नहीं", "No bookings yet")}
-                        </div>
-                      ) : (
-                        <div className="space-y-1">
-                          {groupBookings.map((booking) => {
-                            const memberName = cgProfiles[booking.user_id] || getText("सदस्य", "Member");
-                            return (
-                              <div key={booking.id} className="flex items-center justify-between text-xs">
-                                <span className="text-muted-foreground">{formatHourRange(booking.hour)}</span>
-                                <span className="font-medium">{memberName}</span>
-                                <span className="text-primary">{booking.jaaps}</span>
-                              </div>
-                            );
-                          })}
+                    <div key={event.id} className="rounded-lg border border-border/60">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedGroups(prev => ({ ...prev, [event.id]: !prev[event.id] }))}
+                        className="w-full flex items-center justify-between p-3 text-left"
+                        aria-expanded={isExpanded}
+                      >
+                        <span className="text-sm font-semibold">{groupName}</span>
+                        <ChevronRight
+                          className={`h-4 w-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`}
+                        />
+                      </button>
+                      {isExpanded && (
+                        <div className="px-3 pb-3 space-y-2">
+                          {groupBookings.length === 0 ? (
+                            <div className="text-xs text-muted-foreground">
+                              {getText("अभी कोई बुकिंग नहीं", "No bookings yet")}
+                            </div>
+                          ) : (
+                            <div className="space-y-1">
+                              {groupBookings.map((booking) => {
+                                const memberName = cgProfiles[booking.user_id] || `User·${String(booking.user_id).slice(-6)}`;
+                                return (
+                                  <div key={booking.id} className="flex items-center justify-between text-xs">
+                                    <span className="text-muted-foreground">{formatHourRange(booking.hour)}</span>
+                                    <span className="font-medium">{memberName}</span>
+                                    <span className="text-primary">{booking.jaaps}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

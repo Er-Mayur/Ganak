@@ -19,8 +19,9 @@ import {
 
 
 // ─── CG Counter Screen ────────────────────────────────────────────────────────
-export const CgCounterScreen = ({ onBack, bookingId, eventId, initialCount }: {
-  onBack: () => void;
+export const CgCounterScreen = ({ onBack, onCountChange, bookingId, eventId, initialCount }: {
+  onBack: () => void | Promise<void>;
+  onCountChange?: (count: number) => void;
   bookingId: string;
   eventId: string;
   initialCount: number;
@@ -28,6 +29,7 @@ export const CgCounterScreen = ({ onBack, bookingId, eventId, initialCount }: {
   const [count, setCount] = useState(initialCount);
   const [groupTotal, setGroupTotal] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [isBacking, setIsBacking] = useState(false);
   const [setCountValue, setSetCountValue] = useState("");
   const [isSetDialogOpen, setIsSetDialogOpen] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -67,21 +69,49 @@ export const CgCounterScreen = ({ onBack, bookingId, eventId, initialCount }: {
 
 
   // ── Debounced persist to cg_bookings ────────────────────────────────────
+  const persistCountNow = useCallback(async (n: number) => {
+    setSaving(true);
+    await supabase.from("cg_bookings").update({ jaaps: n }).eq("id", bookingId);
+    setSaving(false);
+    refreshGroupTotal();
+  }, [bookingId, refreshGroupTotal]);
+
   const persistCount = useCallback((n: number) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(async () => {
-      setSaving(true);
-      await supabase.from("cg_bookings").update({ jaaps: n }).eq("id", bookingId);
-      setSaving(false);
-      refreshGroupTotal();
+    debounceRef.current = setTimeout(() => {
+      void persistCountNow(n);
     }, 600);
-  }, [bookingId, refreshGroupTotal]);
+  }, [persistCountNow]);
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, []);
+
+  const handleBack = async () => {
+    if (isBacking) return;
+    setIsBacking(true);
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    try {
+      await persistCountNow(count);
+    } catch (error) {
+      console.error("Failed to persist count before back:", error);
+    }
+    await Promise.resolve(onBack());
+  };
 
   // ── Counter operations — always sync BOTH cg_bookings AND global todayJaaps ──
   const inc = () => {
     const n = count + 1;
     setCount(n);
     persistCount(n);
+    onCountChange?.(n);
     incrementJaaps(); // +1 to global Japa counter
   };
 
@@ -90,6 +120,7 @@ export const CgCounterScreen = ({ onBack, bookingId, eventId, initialCount }: {
     const n = count - 1;
     setCount(n);
     persistCount(n);
+    onCountChange?.(n);
     setJaaps(Math.max(0, todayJaaps - 1)); // -1 from global Japa counter
   };
 
@@ -97,6 +128,7 @@ export const CgCounterScreen = ({ onBack, bookingId, eventId, initialCount }: {
     const deduction = count; // how many to subtract from global
     setCount(0);
     persistCount(0);
+    onCountChange?.(0);
     setJaaps(Math.max(0, todayJaaps - deduction));
   };
 
@@ -127,6 +159,7 @@ export const CgCounterScreen = ({ onBack, bookingId, eventId, initialCount }: {
     const delta = parsed - count; // positive = added jaaps, negative = removed
     setCount(parsed);
     persistCount(parsed);
+    onCountChange?.(parsed);
     setJaaps(Math.max(0, todayJaaps + delta)); // adjust global by delta
     setIsSetDialogOpen(false);
   };
@@ -199,10 +232,10 @@ export const CgCounterScreen = ({ onBack, bookingId, eventId, initialCount }: {
       <div className="w-full max-w-md space-y-6">
         {/* Back + saving — stop propagation so Back doesn't also count */}
         <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
-          <Button variant="ghost" size="sm" onClick={onBack} className="px-2">
+          <Button variant="ghost" size="sm" onClick={handleBack} className="px-2" disabled={saving || isBacking}>
             {getText("← वापस", "← Back")}
           </Button>
-          {saving && (
+          {(saving || isBacking) && (
             <span className="text-xs text-muted-foreground animate-pulse">
               {getText("सेव हो रहा है...", "Saving...")}
             </span>

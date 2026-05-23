@@ -1,11 +1,36 @@
-import { useRef, useState } from "react";
-import { Clock, Play, Users, CheckSquare, Square, ChevronDown, ChevronUp, CalendarCheck, Crown, Share2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Clock, Play, Users, CheckSquare, Square, ChevronDown, ChevronUp, CalendarCheck, Crown, Share2, MoreVertical, Edit3, Trash2, Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { PageHeader } from "./PageHeader";
-import { Plus } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useJapa } from "@/contexts/JapaContext";
 import deityImage from "@/assets/deity.jpg";
 import html2canvas from "html2canvas";
@@ -18,21 +43,52 @@ import {
   SLOT_LABELS, HOUR_LABELS, HOUR_NEXT_LABELS, memberLabel, isPastSlot, getISTNow,
 } from "./ChakriGajarTypes";
 
+const isShareCanceled = (error: unknown) =>
+  Boolean(error && typeof error === "object" && "name" in error && (error as { name?: string }).name === "AbortError");
+
 // ─── Group Details ─────────────────────────────────────────────────────────────
-export const GroupDetailsScreen = ({ group, events, eventStats = {}, members, isAdmin, todayStr, onBack, onNavigate, onSchedule }: {
+export const GroupDetailsScreen = ({ group, events, eventStats = {}, members, isAdmin, todayStr, onBack, onNavigate, onSchedule, onEditGroup, onDeleteGroup, loading }: {
   group: CgGroup; events: CgEvent[]; eventStats?: Record<string, CgEventStats>; members: CgMember[]; isAdmin: boolean; todayStr: string;
   onBack: () => void; onNavigate: (s: CgScreen, d?: any) => void; onSchedule: () => void;
+  onEditGroup: (name: string) => Promise<void>; onDeleteGroup: () => Promise<void>; loading?: boolean;
 }) => {
   const [tab, setTab] = useState<"schedule" | "members" | "stats">("schedule");
   const { getText, settings } = useJapa();
   const { toast } = useToast();
   const shareRef = useRef<HTMLDivElement>(null);
   const [sharingEventId, setSharingEventId] = useState<string | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editName, setEditName] = useState(group.name);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const dateLocale = settings.language === "hi" ? "hi-IN" : "en-IN";
   const tabLabels: Record<typeof tab, string> = {
     schedule: getText("शेड्यूल", "Schedule"),
     members: getText("सदस्य", "Members"),
     stats: getText("आंकड़े", "Stats"),
+  };
+
+  useEffect(() => {
+    setEditName(group.name);
+  }, [group.name]);
+
+  const handleOpenEdit = () => {
+    setEditName(group.name);
+    setIsEditOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    const trimmed = editName.trim();
+    if (!trimmed) {
+      window.alert(getText("समूह का नाम आवश्यक है।", "Group name is required."));
+      return;
+    }
+    await onEditGroup(trimmed);
+    setIsEditOpen(false);
+  };
+
+  const handleConfirmDelete = async () => {
+    await onDeleteGroup();
+    setIsDeleteOpen(false);
   };
 
   const handleShareGroup = async () => {
@@ -54,6 +110,7 @@ export const GroupDetailsScreen = ({ group, events, eventStats = {}, members, is
       }
       window.prompt(getText("शेयर टेक्स्ट", "Share text"), shareText);
     } catch (error) {
+      if (isShareCanceled(error)) return;
       console.error("Share failed", error);
       window.alert(getText("शेयर नहीं हो पाया।", "Unable to share."));
     }
@@ -78,7 +135,7 @@ export const GroupDetailsScreen = ({ group, events, eventStats = {}, members, is
     setShareText("cg-share-group-code", `${getText("कोड:", "Code:")} ${group.code}`);
     setShareText("cg-share-date", `${getText("तारीख:", "Date:")} ${formattedDate}`);
     const formatMala = (jaaps: number) =>
-      (jaaps / 108).toLocaleString(dateLocale, { maximumFractionDigits: 2 });
+      Math.floor(jaaps / 108).toLocaleString(dateLocale);
     const myMala = formatMala(stats.myJaaps);
     const groupMala = formatMala(stats.groupJaaps);
 
@@ -123,6 +180,7 @@ export const GroupDetailsScreen = ({ group, events, eventStats = {}, members, is
             description: getText("शेड्यूल साझा किया गया है", "Schedule shared successfully"),
           });
         } catch (err) {
+          if (isShareCanceled(err)) return;
           console.error("Error sharing native:", err);
           toast({
             variant: "destructive",
@@ -145,6 +203,7 @@ export const GroupDetailsScreen = ({ group, events, eventStats = {}, members, is
                 description: getText("शेड्यूल साझा किया गया है", "Schedule shared successfully"),
               });
             } catch (err) {
+              if (isShareCanceled(err)) return;
               console.error("Error sharing:", err);
             }
           } else {
@@ -233,18 +292,36 @@ export const GroupDetailsScreen = ({ group, events, eventStats = {}, members, is
                 <span>
                   {getText("कोड:", "Code:")} <span className="font-bold text-primary tracking-widest">{group.code}</span>
                 </span>
-                <Button variant="ghost" size="sm" onClick={handleShareGroup} className="h-7 px-2">
-                  <Share2 className="mr-1 h-4 w-4" />
-                  {getText("शेयर", "Share")}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="sm" onClick={handleShareGroup} className="h-7 px-2">
+                    <Share2 className="mr-1 h-4 w-4" />
+                    {getText("शेयर", "Share")}
+                  </Button>
+                  {isAdmin && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" aria-label={getText("समूह मेनू", "Group menu")}>
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onSelect={(e) => { e.preventDefault(); handleOpenEdit(); }}>
+                          <Edit3 className="mr-2 h-4 w-4" />
+                          {getText("समूह संपादित करें", "Edit group")}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onSelect={(e) => { e.preventDefault(); setIsDeleteOpen(true); }}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          {getText("समूह हटाएं", "Delete group")}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </div>
               </div>
-
-              <p className="text-sm text-secondary mt-0.5">
-                {getText(
-                  `${Math.floor((group.totalJaap ?? 0) / 108).toLocaleString()} कुल माला`,
-                  `${Math.floor((group.totalJaap ?? 0) / 108).toLocaleString()} Total Malas`
-                )}
-              </p>
             </div>
           </div>
         </CardContent>
@@ -400,6 +477,55 @@ export const GroupDetailsScreen = ({ group, events, eventStats = {}, members, is
           <Plus className="h-6 w-6" />
         </Button>
       )}
+
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{getText("समूह संपादित करें", "Edit Group")}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="cg-group-name">{getText("समूह का नाम", "Group Name")}</Label>
+            <Input
+              id="cg-group-name"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              placeholder={getText("समूह का नाम", "Group name")}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" type="button" onClick={() => setIsEditOpen(false)}>
+              {getText("रद्द करें", "Cancel")}
+            </Button>
+            <Button type="button" onClick={handleSaveEdit} disabled={loading || !editName.trim()}>
+              {getText("सहेजें", "Save")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{getText("समूह हटाएं?", "Delete group?")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {getText(
+                "यह समूह, उसके सत्र और बुकिंग स्थायी रूप से हट जाएंगे।",
+                "This group, its sessions, and bookings will be permanently removed."
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{getText("रद्द करें", "Cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={loading}
+            >
+              {getText("हटाएं", "Delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

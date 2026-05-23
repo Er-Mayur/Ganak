@@ -57,7 +57,6 @@ export const HomeScreen = ({ groups, onNavigate, onNewGroup, onGoToToday }: {
             </p>
           ) : (
             groups.map(g => {
-              const totalMalas = ((g.totalJaap ?? 0) / 108).toFixed(1);
               return (
                 <div key={g.id} className="rounded-lg border border-border/60 bg-background overflow-hidden">
                   <button
@@ -77,9 +76,6 @@ export const HomeScreen = ({ groups, onNavigate, onNewGroup, onGoToToday }: {
                       <div className="font-semibold text-foreground">{g.name}</div>
                       <div className="text-xs text-muted-foreground mt-0.5">
                         {getText("कोड:", "Code:")} <span className="font-bold text-primary tracking-widest">{g.code}</span>
-                      </div>
-                      <div className="text-xs text-secondary mt-0.5">
-                        {getText(`${totalMalas} कुल माला`, `${totalMalas} total malas`)}
                       </div>
                     </div>
                     <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />

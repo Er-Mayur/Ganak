@@ -712,7 +712,7 @@ export const JapaProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const todayDate = new Date();
       // Add 1 to include the first day
       const totalDays = Math.max(1, differenceInDays(todayDate, firstDate) + 1);
-      averageMalasPerDay = Math.round((totalMalas / totalDays) * 10) / 10;
+      averageMalasPerDay = Math.round(totalMalas / totalDays);
     }
     
     return {
