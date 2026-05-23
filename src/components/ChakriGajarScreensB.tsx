@@ -399,18 +399,32 @@ export const GroupDetailsScreen = ({ group, events, eventStats = {}, members, is
                         ? <Badge variant="outline" className="text-muted-foreground border-muted-foreground/30">{getText("पिछला", "Past")}</Badge>
                         : <Badge variant="outline">{getText("देखें", "View")}</Badge>}
                     {canShare && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (stats) handleShareEvent(ev, stats);
-                        }}
-                        disabled={sharingEventId === ev.id}
-                        className="h-8 w-8"
-                      >
-                        <Share2 className="h-4 w-4" />
-                      </Button>
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onNavigate("scheduleList", ev);
+                          }}
+                          className="h-8 w-8"
+                          aria-label={getText("शेड्यूल संपादित करें", "Edit schedule")}
+                        >
+                          <Edit3 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (stats) handleShareEvent(ev, stats);
+                          }}
+                          disabled={sharingEventId === ev.id}
+                          className="h-8 w-8"
+                        >
+                          <Share2 className="h-4 w-4" />
+                        </Button>
+                      </>
                     )}
                   </div>
                 </div>
