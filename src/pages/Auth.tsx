@@ -343,7 +343,7 @@ const Auth = () => {
               <TabsContent value="signup">
                 <form onSubmit={handleSignUp} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="signup-name">नाम / Display Name (Optional)</Label>
+                    <Label htmlFor="signup-name">नाम / Display Name</Label>
                     <div className="relative">
                       <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                       <Input
@@ -354,6 +354,7 @@ const Auth = () => {
                         value={formData.displayName}
                         onChange={handleInputChange}
                         className="pl-10"
+                        required
                       />
                     </div>
                   </div>

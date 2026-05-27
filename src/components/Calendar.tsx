@@ -53,6 +53,7 @@ export const Calendar = () => {
   const [cgProfiles, setCgProfiles] = useState<Record<string, string>>({});
   const [cgBookingsLoading, setCgBookingsLoading] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+  const [expandedMembers, setExpandedMembers] = useState<Record<string, boolean>>({});
 
   const navigateMonth = (direction: 'prev' | 'next') => {
     setCurrentDate(direction === 'prev' ? subMonths(currentDate, 1) : addMonths(currentDate, 1));
@@ -246,6 +247,7 @@ export const Calendar = () => {
 
   useEffect(() => {
     setExpandedGroups({});
+    setExpandedMembers({});
   }, [selectedDateStr]);
 
   if (loading) {
@@ -420,6 +422,14 @@ export const Calendar = () => {
                 {selectedCgEvents.map((event) => {
                   const groupName = event.cg_groups?.name || getText("समूह", "Group");
                   const groupBookings = cgBookingsByGroup[event.group_id] || [];
+                  const bookingsByUser = groupBookings.reduce((acc, booking) => {
+                    if (!acc[booking.user_id]) {
+                      acc[booking.user_id] = [];
+                    }
+                    acc[booking.user_id].push(booking);
+                    return acc;
+                  }, {} as Record<string, CgBooking[]>);
+                  const userIds = Object.keys(bookingsByUser);
                   const isExpanded = Boolean(expandedGroups[event.id]);
                   return (
                     <div key={event.id} className="rounded-lg border border-border/60">
@@ -436,19 +446,40 @@ export const Calendar = () => {
                       </button>
                       {isExpanded && (
                         <div className="px-3 pb-3 space-y-2">
-                          {groupBookings.length === 0 ? (
+                          {userIds.length === 0 ? (
                             <div className="text-xs text-muted-foreground">
                               {getText("अभी कोई बुकिंग नहीं", "No bookings yet")}
                             </div>
                           ) : (
-                            <div className="space-y-1">
-                              {groupBookings.map((booking) => {
-                                const memberName = cgProfiles[booking.user_id] || `User·${String(booking.user_id).slice(-6)}`;
+                            <div className="space-y-2">
+                              {userIds.map((userId) => {
+                                const memberName = cgProfiles[userId] || `User·${String(userId).slice(-6)}`;
+                                const memberKey = `${event.id}:${userId}`;
+                                const memberBookings = bookingsByUser[userId];
+                                const isMemberExpanded = Boolean(expandedMembers[memberKey]);
                                 return (
-                                  <div key={booking.id} className="flex items-center justify-between text-xs">
-                                    <span className="text-muted-foreground">{formatHourRange(booking.hour)}</span>
-                                    <span className="font-medium">{memberName}</span>
-                                    <span className="text-primary">{booking.jaaps}</span>
+                                  <div key={memberKey} className="rounded-md border border-border/40">
+                                    <button
+                                      type="button"
+                                      onClick={() => setExpandedMembers(prev => ({ ...prev, [memberKey]: !prev[memberKey] }))}
+                                      className="w-full flex items-center justify-between px-3 py-2 text-left"
+                                      aria-expanded={isMemberExpanded}
+                                    >
+                                      <span className="text-sm font-medium">{memberName}</span>
+                                      <ChevronRight
+                                        className={`h-4 w-4 text-muted-foreground transition-transform ${isMemberExpanded ? "rotate-90" : ""}`}
+                                      />
+                                    </button>
+                                    {isMemberExpanded && (
+                                      <div className="px-3 pb-2 space-y-1">
+                                        {memberBookings.map((booking) => (
+                                          <div key={booking.id} className="flex items-center justify-between text-xs">
+                                            <span className="text-muted-foreground">{formatHourRange(booking.hour)}</span>
+                                            <span className="text-primary">{booking.jaaps}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
                                   </div>
                                 );
                               })}

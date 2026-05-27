@@ -249,17 +249,10 @@ export const EnhancedSettings = () => {
               </div>
 
               <div className="text-muted-foreground">
-                Tanay Sinh Mahajan
-              </div>
-
-              <div className="text-muted-foreground">
-                Shivajinagar Upasana Kendra
-              </div>
-
-              <div className="text-muted-foreground">
+                Tanay Sinh Mahajan<br></br>
+                Shivajinagar Upasana Kendra<br></br>
                 Pune
               </div>
-
             </div>
           )}
 

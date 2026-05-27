@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Clock, Play, Users, CheckSquare, Square, ChevronDown, ChevronUp, CalendarCheck, Crown, Share2, MoreVertical, Edit3, Trash2, Plus } from "lucide-react";
+import { Clock, Play, Users, CheckSquare, Square, ChevronDown, ChevronUp, CalendarCheck, Share2, MoreVertical, Edit3, Trash2, Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -459,7 +459,7 @@ export const GroupDetailsScreen = ({ group, events, eventStats = {}, members, is
                       <div className="font-medium text-foreground text-sm">{label}</div>
                       <div className="text-xs text-muted-foreground">{roleLabel}</div>
                     </div>
-                    {m.role === "admin" && <Crown className="h-4 w-4 text-secondary flex-shrink-0" />}
+                    {m.role === "admin" }
                   </div>
                 );
               })
@@ -1082,9 +1082,6 @@ export const ScheduleListScreen = ({ event, bookings, members, userId, currentHo
               value={editMalas}
               onChange={(e) => setEditMalas(e.target.value)}
             />
-            <p className="text-xs text-muted-foreground">
-              {getText(`अधिकतम 10,000 माला`, `Maximum 10,000 malas`)}
-            </p>
           </div>
           <DialogFooter>
             <Button variant="outline" type="button" onClick={closeEdit} disabled={editSaving}>

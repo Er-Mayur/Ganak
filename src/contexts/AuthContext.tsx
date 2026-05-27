@@ -74,8 +74,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    return { error };
+    const { data } = await supabase.auth.getSession();
+    let session = data.session;
+
+    if (!session) {
+      await supabase.auth.signOut({ scope: "local" });
+      return { error: null };
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    const isExpired = typeof session.expires_at === "number" && session.expires_at <= now;
+
+    if (isExpired) {
+      const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError || !refreshed.session) {
+        await supabase.auth.signOut({ scope: "local" });
+        return { error: null };
+      }
+      session = refreshed.session;
+    }
+
+    const { error } = await supabase.auth.signOut({ scope: "global" });
+
+    if (error) {
+      await supabase.auth.signOut({ scope: "local" });
+      if ((error as { status?: number }).status === 403) {
+        return { error: null };
+      }
+      return { error };
+    }
+
+    return { error: null };
   };
 
   const resetPassword = async (email: string) => {
