@@ -184,7 +184,7 @@ export const Counter = ({ onJaapCountChange }: CounterProps) => {
         <img 
           src={deityImage} 
           alt="Deity" 
-          className="w-full h-auto rounded-lg shadow-2xl"
+          className="w-full h-auto max-h-[60vh] object-contain rounded-lg shadow-2xl"
         />
       </div>
       

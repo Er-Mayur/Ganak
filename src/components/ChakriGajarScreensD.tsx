@@ -249,7 +249,11 @@ export const CgCounterScreen = ({ onBack, onCountChange, bookingId, eventId, ini
 
         {/* Deity Image — taps here increment */}
         <div className="relative w-full">
-          <img src={deityImage} alt={getText("देवता", "Deity")} className="w-full h-auto rounded-lg shadow-2xl" />
+          <img
+            src={deityImage}
+            alt={getText("देवता", "Deity")}
+            className="w-full h-auto max-h-[45vh] object-contain rounded-lg shadow-2xl"
+          />
           {/* Ripple hint */}
           <div className="absolute inset-0 rounded-lg flex items-center justify-center pointer-events-none">
             <span className="text-white/20 text-6xl font-bold select-none">+</span>

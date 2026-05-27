@@ -123,6 +123,11 @@ All colors MUST be HSL.
     -webkit-touch-callout: none;
   }
 
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+
   /* Spiritual component styles */
   .om-symbol {
     @apply text-primary font-bold;

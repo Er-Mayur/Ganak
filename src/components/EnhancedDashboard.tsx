@@ -126,22 +126,22 @@ export const EnhancedDashboard = () => {
       <div className="fixed left-[-9999px] top-0">
         <div 
           ref={shareRef} 
-          className="w-[400px] bg-gradient-to-b from-zinc-900 to-black p-8 text-white flex flex-col items-center justify-center space-y-6 rounded-xl font-sans"
+          className="w-[92vw] max-w-[420px] bg-gradient-to-b from-zinc-900 to-black p-6 sm:p-8 text-white flex flex-col items-center justify-center space-y-5 rounded-xl font-sans"
         >
-          <h1 className="text-6xl text-primary mb-4 font-bold">गणक</h1>
-          <div className="w-64 relative">
+          <h1 className="text-[clamp(2rem,8vw,3.5rem)] text-primary font-bold leading-tight text-center">गणक</h1>
+          <div className="w-[70%] max-w-[260px] relative">
             <img 
               src={deityImage} 
               alt="Deity" 
-              className="w-full h-auto rounded-lg shadow-2xl border-2 border-primary/20"
+              className="w-full h-auto max-h-[38vh] object-contain rounded-lg shadow-2xl border-2 border-primary/20"
               crossOrigin="anonymous"
             />
           </div>
-          <div className="text-center space-y-2 w-full bg-white/5 p-4 rounded-lg backdrop-blur-sm mt-6">
-            <h2 id="share-title" className="text-xl text-gray-400 font-medium">Stats</h2>
-            <p id="share-count" className="text-3xl font-bold text-primary">0 Mala</p>
+          <div className="text-center space-y-1.5 w-full bg-white/5 p-4 rounded-lg backdrop-blur-sm">
+            <h2 id="share-title" className="text-[clamp(0.9rem,3.6vw,1.2rem)] text-gray-300 font-medium leading-snug break-words">Stats</h2>
+            <p id="share-count" className="text-[clamp(1.5rem,6vw,2.5rem)] font-bold text-primary leading-tight break-words">0 Mala</p>
           </div>
-          <div className="text-xs text-gray-500 mt-4">Shared from Ganak App</div>
+          <div className="text-[clamp(0.65rem,2.6vw,0.8rem)] text-gray-500 text-center">Shared from Ganak App</div>
         </div>
       </div>
 
